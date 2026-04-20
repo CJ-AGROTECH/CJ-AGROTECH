@@ -1,0 +1,26 @@
+services:
+  postgres-db:
+    image: postgres:17
+    container_name: postgres_agrotech
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+      POSTGRES_DB: agrotech_cj
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mongo-db:
+    image: mongo:7.0
+    container_name: mongo_agrotech
+    environment:
+      MONGO_INITDB_DATABASE: agrotech_telemetria
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/var/lib/mongodb/data
+
+volumes:
+  postgres_data:
+  mongo_data:
