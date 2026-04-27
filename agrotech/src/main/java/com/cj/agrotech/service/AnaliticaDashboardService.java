@@ -39,4 +39,24 @@ public class AnaliticaDashboardService {
         calculo.put("estado", estado);
         return calculo;
     }
+
+    // Exportación CSV
+    public String exportarCSV(UUID dispositivoId) {
+        List<Telemetria> lecturas = obtenerHistoricoTelemetria(dispositivoId);
+        StringBuilder csv = new StringBuilder("timestamp,temp_aire,hum_aire,presion,lux,hum_suelo,temp_suelo,precipitacion,viento,bateria,rssi\n");
+        for (Telemetria t : lecturas) {
+            csv.append(t.getTimestamp()).append(",")
+                    .append(t.getLecturas().getAmbiente().getTempAire()).append(",")
+                    .append(t.getLecturas().getAmbiente().getHumAire()).append(",")
+                    .append(t.getLecturas().getAmbiente().getPresion()).append(",")
+                    .append(t.getLecturas().getAmbiente().getLux()).append(",")
+                    .append(t.getLecturas().getSuelo().getHumSuelo()).append(",")
+                    .append(t.getLecturas().getSuelo().getTempSuelo()).append(",")
+                    .append(t.getLecturas().getClima().getPrecipitacion()).append(",")
+                    .append(t.getLecturas().getClima().getViento()).append(",")
+                    .append(t.getDiagnostico().getBateria()).append(",")
+                    .append(t.getDiagnostico().getRssiWifi()).append("\n");
+        }
+        return csv.toString();
+    }
 }

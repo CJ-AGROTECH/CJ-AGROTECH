@@ -3,20 +3,19 @@ package com.cj.agrotech.service;
 import com.cj.agrotech.domain.document.Telemetria;
 import com.cj.agrotech.domain.entity.ConfiguracionAlerta;
 import com.cj.agrotech.domain.entity.Dispositivo;
-import com.cj.agrotech.domain.entity.HistorialAlerta;
+import com.cj.agrotech.domain.enums.CondicionAlerta;
 import com.cj.agrotech.repository.ConfiguracionAlertaRepository;
 import com.cj.agrotech.repository.DispositivoRepository;
 import com.cj.agrotech.repository.HistorialAlertaRepository;
 import com.cj.agrotech.repository.TelemetriaRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
-import tools.jackson.databind.JsonNode;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +29,7 @@ public class SimulacionService {
     private final DispositivoRepository dispositivoRepository;
     private final ConfiguracionAlertaRepository configuracionAlertaRepository;
     private final HistorialAlertaRepository historialAlertaRepository;
+    private final MotorAlertasService motorAlertasService;
 
     @Transactional
     public Telemetria ejecutarSimulacionCompleta(UUID dispositivoId, UUID loteId) {
@@ -85,49 +85,9 @@ public class SimulacionService {
         telemetria = telemetriaRepository.save(telemetria);
         log.info("Datos de telemetría guardados en MongoDB. ID: {}", telemetria.getId());
 
-        // 5. Evaluar Motor de Alertas
-        evaluarAlertas(telemetria, dispositivo, loteId);
+        // 5. Evaluar Motor de Alertas usando motorAlertasService
+        motorAlertasService.evaluarLectura(telemetria, dispositivo, loteId);
 
         return telemetria;
-    }
-
-    private void evaluarAlertas(Telemetria telemetria, Dispositivo dispositivo, UUID loteId) {
-        List<ConfiguracionAlerta> reglas = configuracionAlertaRepository.findByLoteId(loteId);
-
-        for (ConfiguracionAlerta regla : reglas) {
-            Float valorLeido = extraerValorPorVariable(telemetria, regla.getVariable());
-
-            if (valorLeido != null) {
-                boolean isAlarma = false;
-
-                if (regla.getMin() != null && valorLeido < regla.getMin()) isAlarma = true;
-                if (regla.getMax() != null && valorLeido > regla.getMax()) isAlarma = true;
-
-                if (isAlarma) {
-                    HistorialAlerta alerta = HistorialAlerta.builder()
-                            .dispositivo(dispositivo)
-                            .variable(regla.getVariable())
-                            .valorLeido(valorLeido)
-                            .fechaHora(LocalDateTime.now())
-                            .vistoPorUsuario(false)
-                            .build();
-
-                    historialAlertaRepository.save(alerta);
-                    log.warn("¡ALERTA DISPARADA! Variable: {} | Valor Leído: {} | Límite superado en Lote: {}",
-                            regla.getVariable(), valorLeido, loteId);
-                }
-            }
-        }
-    }
-
-    // Mapeo dinámico para el motor de reglas
-    private Float extraerValorPorVariable(Telemetria t, String variable) {
-        return switch (variable.toLowerCase()) {
-            case "temp_aire" -> t.getLecturas().getAmbiente().getTempAire();
-            case "hum_aire" -> t.getLecturas().getAmbiente().getHumAire();
-            case "hum_suelo" -> t.getLecturas().getSuelo().getHumSuelo();
-            case "temp_suelo" -> t.getLecturas().getSuelo().getTempSuelo();
-            default -> null;
-        };
     }
 }

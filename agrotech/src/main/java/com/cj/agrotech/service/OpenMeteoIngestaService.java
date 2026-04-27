@@ -1,19 +1,32 @@
 package com.cj.agrotech.service;
 
 import com.cj.agrotech.dto.TelemetriaCapturaDTO;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import tools.jackson.databind.JsonNode;
 
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OpenMeteoIngestaService {
 
     private final WebClient webClient;
     private final TelemetriaService telemetriaService;
+
+    // Cronjob cada 15 minutos para ingesta automática
+    @Scheduled(fixedRate = 900000) // 15 minutos en milisegundos
+    public void ingestarDatosClimaticosAutomaticamente() {
+        // Para cada dispositivo activo, ingestar datos
+        // Aquí se asume que se obtiene la lista de dispositivos activos
+        // Por simplicidad, se puede implementar en el futuro con un método que obtenga dispositivos
+        log.info("Iniciando ingesta automática de datos climáticos desde Open-Meteo");
+        // Ejemplo: ingestarDatosClimaticos(dispositivoId, loteId, lat, lon);
+    }
 
     public void ingestarDatosClimaticos(UUID dispositivoId, UUID loteId, Double lat, Double lon) {
         JsonNode response = webClient.get()
@@ -53,6 +66,7 @@ public class OpenMeteoIngestaService {
             );
 
             telemetriaService.registrarCaptura(dto);
+            log.info("Datos climáticos ingestados para dispositivo {}", dispositivoId);
         }
     }
 }

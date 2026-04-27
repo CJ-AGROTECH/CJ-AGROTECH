@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/dashboard")
+@RequestMapping("/api/dashboard")
 @RequiredArgsConstructor
 public class DashboardAnaliticaController {
     private final AnaliticaDashboardService analiticaService;
@@ -32,7 +32,7 @@ public class DashboardAnaliticaController {
 
     @GetMapping("/exportar/{dispositivoId}")
     public ResponseEntity<byte[]> exportarDatosCSV(@PathVariable UUID dispositivoId) {
-        String csvData = exportacionService.generarCsvHistorico(dispositivoId);
+        String csvData = analiticaService.exportarCSV(dispositivoId);
         byte[] output = csvData.getBytes();
 
         HttpHeaders headers = new HttpHeaders();

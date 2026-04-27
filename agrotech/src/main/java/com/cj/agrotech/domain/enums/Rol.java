@@ -1,5 +1,5 @@
 package com.cj.agrotech.domain.enums;
 
-public enum RolUsuario {
+public enum Rol {
     ADMIN, INGENIERO, AGRICULTOR
 }

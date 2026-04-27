@@ -7,21 +7,20 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "catalogo_cultivos")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
 public class CatalogoCultivo {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
     @Column(nullable = false, unique = true)
-    private String nombreComun;
+    private String nombre; // Papa, Flores, Café
 
-    private String nombreCientifico;
-    private Float tempMinOptima;
-    private Float tempMaxOptima;
-    private Float humedadSueloMin;
+    private String variedad;
+    private String descripcion;
+    private Integer diasCrecimiento;
+    private Double tempOptimaMin;
+    private Double tempOptimaMax;
+    private Double humedadOptimaMin;
+    private Double humedadOptimaMax;
 }

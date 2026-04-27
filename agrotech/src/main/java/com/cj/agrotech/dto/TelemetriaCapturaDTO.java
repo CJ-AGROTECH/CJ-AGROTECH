@@ -17,4 +17,32 @@ public record TelemetriaCapturaDTO(
         @NotNull
         DiagnosticoDTO diagnostico
 ) {
+
+    public record LecturasDTO(
+            AmbienteDTO ambiente,
+            SueloDTO suelo,
+            ClimaDTO clima
+    ) {}
+
+    public record AmbienteDTO(
+            Float tempAire,
+            Float humAire,
+            Float presion,
+            Float lux
+    ) {}
+
+    public record SueloDTO(
+            Float humSuelo,
+            Float tempSuelo
+    ) {}
+
+    public record ClimaDTO(
+            Float precipitacion,
+            Float viento
+    ) {}
+
+    public record DiagnosticoDTO(
+            Integer bateria,
+            Integer rssiWifi
+    ) {}
 }

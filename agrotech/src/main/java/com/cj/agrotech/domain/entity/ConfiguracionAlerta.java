@@ -1,31 +1,38 @@
 package com.cj.agrotech.domain.entity;
 
+import com.cj.agrotech.domain.enums.CondicionAlerta;
 import com.cj.agrotech.domain.enums.PrioridadAlerta;
+import com.cj.agrotech.domain.enums.VariableSensor;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.UUID;
 
+
 @Entity
 @Table(name = "configuracion_alertas")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
 public class ConfiguracionAlerta {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "lote_id", nullable = false)
-    private Lote lote;
-
-    private String variable; // Ej: "temp_aire", "hum_suelo"
-    private Float min;
-    private Float max;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private VariableSensor variable;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CondicionAlerta condicion;
+
+    @Column(nullable = false)
+    private Double umbral;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private PrioridadAlerta prioridad;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dispositivo_id", nullable = false)
+    private Dispositivo dispositivo;
 }

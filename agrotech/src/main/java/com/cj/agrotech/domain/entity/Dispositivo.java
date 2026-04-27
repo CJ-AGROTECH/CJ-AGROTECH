@@ -5,29 +5,37 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
 @Table(name = "dispositivos")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
 public class Dispositivo {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "lote_id")
-    private Lote lote;
-
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false, unique = true)
     private String macAddress;
 
+    @Column(nullable = false)
+    private String nombre;
+
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private EstadoDispositivo estado;
 
+    @Column(name = "ultima_sincronizacion")
     private LocalDateTime ultimaSincronizacion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lote_id", nullable = false)
+    private Lote lote;
+
+    @OneToMany(mappedBy = "dispositivo", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<ConfiguracionAlerta> configuracionesAlerta;
+
+    @OneToMany(mappedBy = "dispositivo", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<HistorialAlerta> historialAlertas;
 }

@@ -3,6 +3,7 @@ package com.cj.agrotech.service;
 import com.cj.agrotech.domain.document.Telemetria;
 import com.cj.agrotech.domain.entity.Dispositivo;
 import com.cj.agrotech.dto.TelemetriaCapturaDTO;
+import com.cj.agrotech.exception.ResourceNotFoundException;
 import com.cj.agrotech.repository.DispositivoRepository;
 import com.cj.agrotech.repository.TelemetriaRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -20,10 +23,15 @@ public class TelemetriaService {
     private final DispositivoRepository dispositivoRepository;
     private final MotorAlertasService motorAlertasService;
 
+    @Transactional(readOnly = true)
+    public List<Telemetria> listarPorDispositivo(UUID dispositivoId) {
+        return telemetriaRepository.findByDispositivoIdOrderByTimestampDesc(dispositivoId);
+    }
+
     @Transactional
     public void registrarCaptura(TelemetriaCapturaDTO dto) {
         Dispositivo dispositivo = dispositivoRepository.findById(dto.dispositivoId())
-                .orElseThrow(() -> new RuntimeException("Dispositivo no válido"));
+                .orElseThrow(() -> new ResourceNotFoundException("Dispositivo no encontrado"));
 
         dispositivo.setUltimaSincronizacion(LocalDateTime.now());
         dispositivoRepository.save(dispositivo);
@@ -42,7 +50,7 @@ public class TelemetriaService {
 
         telemetriaRepository.save(telemetria);
 
-        // Dispara la evaluación de reglas inmediatamente (RF2)
+        // Dispara la evaluación de reglas inmediatamente
         motorAlertasService.evaluarLectura(telemetria, dispositivo, dto.loteId());
     }
 }

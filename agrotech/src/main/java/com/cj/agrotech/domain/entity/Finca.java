@@ -3,33 +3,33 @@ package com.cj.agrotech.domain.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @Entity
 @Table(name = "fincas")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
 public class Finca {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
+
+    @Column(nullable = false)
+    private String nombre;
+
+    @Column(nullable = false)
+    private String municipio;
+
+    @Column(name = "latitud")
+    private Double latitud;
+
+    @Column(name = "longitud")
+    private Double longitud;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
 
-    @Column(nullable = false)
-    private String nombre;
-
-    private String municipio;
-    private String vereda;
-
-    private Double latitud;
-    private Double longitud;
-
-    @OneToMany(mappedBy = "finca", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "finca", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Lote> lotes;
 }

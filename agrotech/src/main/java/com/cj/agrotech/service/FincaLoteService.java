@@ -2,6 +2,7 @@ package com.cj.agrotech.service;
 
 import com.cj.agrotech.domain.entity.Finca;
 import com.cj.agrotech.domain.entity.Lote;
+import com.cj.agrotech.exception.ResourceNotFoundException;
 import com.cj.agrotech.repository.FincaRepository;
 import com.cj.agrotech.repository.LoteRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,34 +14,39 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class FincaLoteService {
 
     private final FincaRepository fincaRepository;
     private final LoteRepository loteRepository;
 
-    // --- FINCAS ---
-    @Transactional(readOnly = true)
+    // Finca Operations
     public List<Finca> obtenerFincasPorUsuario(UUID usuarioId) {
         return fincaRepository.findByUsuarioId(usuarioId);
     }
 
-    @Transactional
     public Finca registrarFinca(Finca finca) {
         return fincaRepository.save(finca);
     }
 
-    @Transactional
-    public void eliminarFinca(UUID fincaId) {
-        fincaRepository.deleteById(fincaId);
+    public void eliminarFinca(UUID id) {
+        Finca finca = fincaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Finca no encontrada con ID: " + id));
+        fincaRepository.delete(finca);
     }
 
-    @Transactional(readOnly = true)
+    // Lote Operations
     public List<Lote> obtenerLotesPorFinca(UUID fincaId) {
+        Finca finca = fincaRepository.findById(fincaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Finca no encontrada con ID: " + fincaId));
         return loteRepository.findByFincaId(fincaId);
     }
 
-    @Transactional
     public Lote registrarLote(Lote lote) {
+        // Validar que la Finca existe
+        Finca finca = fincaRepository.findById(lote.getFinca().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Finca no encontrada"));
         return loteRepository.save(lote);
     }
 }
+

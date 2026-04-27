@@ -12,15 +12,17 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/alertas")
+@RequestMapping("/api/alertas")
 @RequiredArgsConstructor
 public class AlertaController {
     private final MotorAlertasService motorAlertasService;
     private final HistorialAlertaService historialAlertaService;
 
     // Configuración de reglas
-    @GetMapping("/configuracion/lote/{loteId}")
-    public List<ConfiguracionAlerta> listarReglas(@PathVariable UUID loteId) { return motorAlertasService.obtenerReglasPorLote(loteId); }
+    @GetMapping("/configuracion/dispositivo/{dispositivoId}")
+    public List<ConfiguracionAlerta> listarReglas(@PathVariable UUID dispositivoId) {
+        return motorAlertasService.obtenerReglasPorDispositivo(dispositivoId);
+    }
 
     @PostMapping("/configuracion")
     @ResponseStatus(HttpStatus.CREATED)

@@ -1,36 +1,33 @@
 package com.cj.agrotech.domain.entity;
 
-import com.cj.agrotech.domain.enums.RolUsuario;
+import com.cj.agrotech.domain.enums.Rol;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
 @Table(name = "usuarios")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
 public class Usuario {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false)
     private String nombre;
 
-    @Column(nullable = false, unique = true, length = 150)
-    private String correo;
+    @Column(nullable = false, unique = true)
+    private String email;
 
     @Column(nullable = false)
-    private String passwordHash;
+    private String password;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private RolUsuario rol;
+    private Rol rol;
 
-    @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime fechaRegistro;
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Finca> fincas;
 }
