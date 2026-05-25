@@ -31,17 +31,20 @@ const Register = () => {
     }
     setLoading(true);
     try {
+      // Registrar usuario
       await api.post("/auth/register", {
         nombre: formData.nombre,
         email: formData.email,
         password: formData.password,
         rol: formData.rol
       });
-      navigate("/login", { 
-        state: { 
-          message: "Cuenta creada exitosamente. Por favor inicia sesión." 
-        }
+      // Login automático tras registro
+      const loginResponse = await api.post("/auth/login", {
+        email: formData.email,
+        password: formData.password
       });
+      localStorage.setItem('token', loginResponse.data.token);
+      navigate("/dashboard");
     } catch (error) {
       setError(error.response?.data?.message || "Error al crear la cuenta");
     } finally {

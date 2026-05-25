@@ -9,11 +9,12 @@ import com.cj.agrotech.repository.DispositivoRepository;
 import com.cj.agrotech.repository.HistorialAlertaRepository;
 import com.cj.agrotech.repository.TelemetriaRepository;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
 import java.util.List;
@@ -24,12 +25,13 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SimulacionService {
 
-    private final WebClient webClient;
+    private final RestTemplate restTemplate;
     private final TelemetriaRepository telemetriaRepository;
     private final DispositivoRepository dispositivoRepository;
     private final ConfiguracionAlertaRepository configuracionAlertaRepository;
     private final HistorialAlertaRepository historialAlertaRepository;
     private final MotorAlertasService motorAlertasService;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public Telemetria ejecutarSimulacionCompleta(UUID dispositivoId, UUID loteId) {
@@ -40,16 +42,18 @@ public class SimulacionService {
                 .orElseThrow(() -> new RuntimeException("Dispositivo no encontrado en Postgres"));
 
         // 2. Consumir API de Open-Meteo (Variables completas)
-        JsonNode response = webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/forecast")
-                        .queryParam("latitude", 6.15)
-                        .queryParam("longitude", -75.37)
-                        .queryParam("current", "temperature_2m,relative_humidity_2m,surface_pressure,precipitation,wind_speed_10m,soil_temperature_0_to_7cm,soil_moisture_0_to_7cm")
-                        .build())
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .block(); // Bloqueamos para mantener el flujo secuencial en la misma transacción
+        String url = "https://api.open-meteo.com/v1/forecast?" +
+                "latitude=6.15&longitude=-75.37&" +
+                "current=temperature_2m,relative_humidity_2m,surface_pressure,precipitation,wind_speed_10m,soil_temperature_0_to_7cm,soil_moisture_0_to_7cm";
+        
+        JsonNode response;
+        try {
+            String jsonResponse = restTemplate.getForObject(url, String.class);
+            response = objectMapper.readTree(jsonResponse);
+        } catch (Exception e) {
+            log.error("Error al obtener datos de Open-Meteo", e);
+            throw new RuntimeException("Error al obtener datos de Open-Meteo: " + e.getMessage());
+        }
 
         if (response == null || !response.has("current")) {
             throw new RuntimeException("Error al obtener datos de Open-Meteo");

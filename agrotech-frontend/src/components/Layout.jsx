@@ -10,10 +10,12 @@ const Layout = ({ children }) => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) {
-      fetchUserData();
-      fetchAlertas();
+    if (!token) {
+      navigate('/login');
+      return;
     }
+    fetchUserData();
+    fetchAlertas();
   }, []);
 
   const fetchUserData = async () => {

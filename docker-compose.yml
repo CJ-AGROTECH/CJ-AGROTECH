@@ -1,50 +1,140 @@
 services:
+  # ===============================
+  # PostgreSQL - Relational Database
+  # ===============================
   postgres-db:
-    image: postgres:17
+    image: postgres:17-alpine
     container_name: postgres_agrotech
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres_password
-      POSTGRES_DB: agrotech_cj
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres_password}
+      POSTGRES_DB: ${DB_NAME:-agrotech_cj}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agrotech-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # ===============================
+  # MongoDB - Time-Series Database
+  # ===============================
   mongo-db:
-    image: mongo:7.0
+    image: mongo:7
     container_name: mongo_agrotech
     environment:
-      MONGO_INITDB_DATABASE: agrotech_telemetria
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-agrotech_telemetria}
     ports:
       - "27017:27017"
     volumes:
-      - mongo_data:/var/lib/mongodb/data
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agrotech-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # ===============================
+  # Backend - Spring Boot Application
+  # ===============================
   backend:
-    build: ./agrotech
+    build:
+      context: ./agrotech
+      dockerfile: Dockerfile
+      cache_from:
+        - agrotech:latest
+    image: agrotech:latest
     container_name: agrotech_backend
     ports:
       - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/agrotech_cj
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres_password
-      SPRING_DATA_MONGODB_URI: mongodb://mongo-db:27017/agrotech_telemetria
+      DB_HOST: postgres-db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-agrotech_cj}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres_password}
+      MONGO_HOST: mongo-db
+      MONGO_PORT: 27017
+      MONGO_DB: ${MONGO_DB:-agrotech_telemetria}
+      JWT_SECRET: ${JWT_SECRET:-mySecretKeyForJWTTokenGenerationAndValidationPurposesOnly}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
     depends_on:
-      - postgres-db
-      - mongo-db
+      postgres-db:
+        condition: service_healthy
+      mongo-db:
+        condition: service_healthy
+    networks:
+      - agrotech-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # ===============================
+  # Frontend - React Application (Nginx)
+  # ===============================
   frontend:
-    build: ./agrotech-frontend
+    build:
+      context: ./agrotech-frontend
+      dockerfile: Dockerfile
+      cache_from:
+        - agrotech-frontend:latest
+    image: agrotech-frontend:latest
     container_name: agrotech_frontend
-    network_mode: host
+    ports:
+      - "3000:80"
     environment:
-      VITE_API_URL: http://localhost:8080/api
-    depends_on:
-      - backend
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api}
+    networks:
+      - agrotech-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/index.html"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+# ===============================
+# Networks
+# ===============================
+networks:
+  agrotech-network:
+    driver: bridge
+
+# ===============================
+# Volumes
+# ===============================
 volumes:
   postgres_data:
+    driver: local
   mongo_data:
+    driver: local
