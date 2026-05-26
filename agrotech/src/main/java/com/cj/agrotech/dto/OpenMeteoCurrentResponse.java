@@ -5,15 +5,8 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class OpenMeteoCurrentResponse {
-    private Current current;
-
+public record OpenMeteoCurrentResponse(Current current) {
     @Getter
     @Setter
-    public static class Current {
-        private Float temperature_2m;
-        private Float relative_humidity_2m;
-        private Float wind_speed_10m;
-        private Float precipitation;
-    }
+    public record Current(Float temperature_2m, Float relative_humidity_2m, Float wind_speed_10m, Float precipitation) {}
 }
