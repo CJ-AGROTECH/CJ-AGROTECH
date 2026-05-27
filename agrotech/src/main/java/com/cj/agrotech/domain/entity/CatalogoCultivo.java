@@ -14,7 +14,7 @@ public class CatalogoCultivo {
     private UUID id;
 
     @Column(nullable = false, unique = true)
-    private String nombre; // Papa, Flores, Café
+    private String nombre; 
 
     private String variedad;
     private String descripcion;

@@ -20,10 +20,14 @@ const Layout = ({ children }) => {
 
   const fetchUserData = async () => {
     try {
-      const response = await api.get('/usuarios/me');
+      const response = await api.get('/auth/me');
       setUser(response.data);
     } catch (error) {
       console.error('Error fetching user:', error);
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/login');
+      }
     }
   };
 

@@ -34,38 +34,51 @@ public class OpenMeteoIngestaService {
         try {
             String url = "https://api.open-meteo.com/v1/forecast?" +
                     "latitude=" + lat + "&longitude=" + lon + "&" +
-                    "current=temperature_2m,relative_humidity_2m,surface_pressure,precipitation,wind_speed_10m,soil_temperature_0_to_7cm,soil_moisture_0_to_7cm";
+                    "current_weather=true&hourly=temperature_2m,relativehumidity_2m,surface_pressure,precipitation,wind_speed_10m,soil_temperature_0_to_7cm,soil_moisture_0_to_7cm&timezone=auto";
 
             String jsonResponse = restTemplate.getForObject(url, String.class);
             JsonNode response = objectMapper.readTree(jsonResponse);
 
-            if (response != null && response.has("current")) {
-                JsonNode current = response.get("current");
+            if (response != null && response.has("hourly") && response.has("current_weather")) {
+                JsonNode hourly = response.get("hourly");
+                JsonNode currentWeather = response.get("current_weather");
+                JsonNode times = hourly.get("time");
+                int lastIndex = (times != null && times.isArray()) ? times.size() - 1 : -1;
 
-                TelemetriaCapturaDTO dto = new TelemetriaCapturaDTO(
-                        dispositivoId,
-                        loteId,
-                        new TelemetriaCapturaDTO.LecturasDTO(
-                                new TelemetriaCapturaDTO.AmbienteDTO(
-                                        current.get("temperature_2m").floatValue(),
-                                        current.get("relative_humidity_2m").floatValue(),
-                                        current.get("surface_pressure").floatValue(),
-                                        1000.0f // Dato estático de relleno para LUX
-                                ),
-                                new TelemetriaCapturaDTO.SueloDTO(
-                                        current.get("soil_moisture_0_to_7cm").floatValue(),
-                                        current.get("soil_temperature_0_to_7cm").floatValue()
-                                ),
-                                new TelemetriaCapturaDTO.ClimaDTO(
-                                        current.get("precipitation").floatValue(),
-                                        current.get("wind_speed_10m").floatValue()
-                                )
-                        ),
-                        new TelemetriaCapturaDTO.DiagnosticoDTO(100, -50)
-                );
+                if (lastIndex >= 0) {
+                    Float temperature = currentWeather.has("temperature") ? currentWeather.get("temperature").floatValue() : null;
+                    Float humidity = hourly.has("relativehumidity_2m") ? hourly.get("relativehumidity_2m").get(lastIndex).floatValue() : null;
+                    Float pressure = hourly.has("surface_pressure") ? hourly.get("surface_pressure").get(lastIndex).floatValue() : null;
+                    Float precipitation = hourly.has("precipitation") ? hourly.get("precipitation").get(lastIndex).floatValue() : null;
+                    Float windSpeed = hourly.has("wind_speed_10m") ? hourly.get("wind_speed_10m").get(lastIndex).floatValue() : null;
+                    Float soilMoisture = hourly.has("soil_moisture_0_to_7cm") ? hourly.get("soil_moisture_0_to_7cm").get(lastIndex).floatValue() : null;
+                    Float soilTemperature = hourly.has("soil_temperature_0_to_7cm") ? hourly.get("soil_temperature_0_to_7cm").get(lastIndex).floatValue() : null;
 
-                telemetriaService.registrarCaptura(dto);
-                log.info("Datos climáticos ingestados para dispositivo {}", dispositivoId);
+                    TelemetriaCapturaDTO dto = new TelemetriaCapturaDTO(
+                            dispositivoId,
+                            loteId,
+                            new TelemetriaCapturaDTO.LecturasDTO(
+                                    new TelemetriaCapturaDTO.AmbienteDTO(
+                                            temperature,
+                                            humidity,
+                                            pressure,
+                                            1000.0f
+                                    ),
+                                    new TelemetriaCapturaDTO.SueloDTO(
+                                            soilMoisture,
+                                            soilTemperature
+                                    ),
+                                    new TelemetriaCapturaDTO.ClimaDTO(
+                                            precipitation,
+                                            windSpeed
+                                    )
+                            ),
+                            new TelemetriaCapturaDTO.DiagnosticoDTO(100, -50)
+                    );
+
+                    telemetriaService.registrarCaptura(dto);
+                    log.info("Datos climáticos ingestados para dispositivo {}", dispositivoId);
+                }
             }
         } catch (Exception e) {
             log.error("Error al ingestar datos climáticos: {}", e.getMessage(), e);

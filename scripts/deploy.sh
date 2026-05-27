@@ -1,25 +1,20 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# AGROTECH - Deployment & Optimization Script
-# Uso: bash scripts/deploy.sh [dev|prod]
+# AGROTECH - Deployment Script
+# Uso:
+#   bash scripts/deploy.sh dev
+#   bash scripts/deploy.sh prod
 
-set -e
+set -euo pipefail
 
 ENVIRONMENT=${1:-dev}
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "🚀 AGROTECH Deployment Script"
-echo "📍 Environment: $ENVIRONMENT"
-echo "📂 Project: $PROJECT_DIR"
-echo "⏰ Time: $(date)"
-echo ""
-
-# Color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 log_info() {
     echo -e "${BLUE}ℹ ${NC}$1"
@@ -37,82 +32,69 @@ log_error() {
     echo -e "${RED}✗ ${NC}$1"
 }
 
-# Validate environment file
+wait_for_url() {
+    local url="$1"
+    local name="$2"
+    local retries=15
+    local count=0
+
+    while [ $count -lt $retries ]; do
+        if curl -s -o /dev/null -w "%{http_code}" "$url" >/dev/null 2>&1; then
+            log_success "✅ $name está disponible en $url"
+            return 0
+        fi
+        count=$((count + 1))
+        log_info "Esperando $name... ($count/$retries)"
+        sleep 3
+    done
+
+    log_error "❌ $name no respondió en $url"
+    return 1
+}
+
 if [ ! -f "$PROJECT_DIR/.env" ]; then
-    log_warning ".env not found, creating from .env.example"
+    log_warning ".env no encontrado, creando desde .env.example"
     cp "$PROJECT_DIR/.env.example" "$PROJECT_DIR/.env"
-    log_warning "Please edit .env with your configuration"
+    log_warning "Edita .env antes de ejecutar el despliegue"
 fi
 
-# Load environment variables
 set -a
 source "$PROJECT_DIR/.env"
 set +a
 
-log_info "Stopping any running containers..."
+log_info "Deteniendo servicios existentes..."
 cd "$PROJECT_DIR"
-docker compose down -v 2>/dev/null || true
-
-log_info "Cleaning Docker cache..."
-docker system prune -f --filter "dangling=true" 2>/dev/null || true
+docker compose down --remove-orphans 2>/dev/null || true
 
 if [ "$ENVIRONMENT" = "prod" ]; then
-    log_info "🏭 Building for PRODUCTION..."
-    log_info "Building backend with optimizations..."
-    docker compose build --no-cache backend
-    
-    log_info "Building frontend with optimizations..."
-    docker compose build --no-cache frontend
-    
-    log_success "Production build complete"
-    
-    log_info "Starting services..."
-    docker compose up -d
-    
-    log_info "Waiting for services to be healthy..."
-    sleep 30
-    
-    # Health checks
-    if curl -s http://localhost:8080/api/health >/dev/null 2>&1; then
-        log_success "✅ Backend is healthy"
-    else
-        log_error "❌ Backend health check failed"
-    fi
-    
-    if curl -s http://localhost:3000/health >/dev/null 2>&1; then
-        log_success "✅ Frontend is healthy"
-    else
-        log_error "❌ Frontend health check failed"
-    fi
-    
+    log_info "🏭 Desplegando en modo PRODUCTION"
+    docker compose build --no-cache backend frontend
 else
-    log_info "🚀 Building for DEVELOPMENT..."
-    log_info "Building with cache (faster)..."
+    log_info "🚀 Desplegando en modo DEVELOPMENT"
     docker compose build backend frontend
-    
-    log_success "Development build complete"
-    
-    log_info "Starting services..."
-    docker compose up -d
-    
-    log_info "Waiting for services to start..."
-    sleep 20
 fi
 
+log_success "Build de imágenes completado"
+
+log_info "Iniciando servicios..."
+docker compose up -d
+
+log_info "Comprobando disponibilidad de servicios..."
+wait_for_url "http://localhost:8080" "Backend" || true
+wait_for_url "http://localhost:3000" "Frontend" || true
+
+log_success "🎉 Despliegue completo"
+
 echo ""
-log_success "🎉 Deployment complete!"
-echo ""
-echo "📊 Services:"
+echo "📊 Servicios disponibles"
 echo "   Backend:  http://localhost:8080"
 echo "   Frontend: http://localhost:3000"
 echo "   Postgres: localhost:5432"
 echo "   MongoDB:  localhost:27017"
 echo ""
-echo "📋 Useful commands:"
-echo "   docker compose logs -f backend"
-echo "   docker compose logs -f frontend"
+echo "📋 Comandos útiles"
+echo "   docker compose logs -f backend frontend"
 echo "   docker compose exec backend bash"
 echo "   docker compose exec frontend sh"
-echo ""
-echo "🛑 To stop: docker compose down -v"
+echo "   docker compose down --remove-orphans"
 echo ""

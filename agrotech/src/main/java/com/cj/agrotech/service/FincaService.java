@@ -38,7 +38,6 @@ public class FincaService {
 
     @Transactional
     public Finca crear(Finca finca) {
-        // Validar que el usuario existe
         Usuario usuario = usuarioRepository.findById(finca.getUsuario().getId())
                 .orElseThrow(() -> new BadRequestException("Usuario propietario no encontrado."));
         finca.setUsuario(usuario);
@@ -50,6 +49,8 @@ public class FincaService {
         Finca existente = obtenerPorId(id);
         existente.setNombre(datos.getNombre());
         existente.setMunicipio(datos.getMunicipio());
+        existente.setLatitud(datos.getLatitud());
+        existente.setLongitud(datos.getLongitud());
         return fincaRepository.save(existente);
     }
 

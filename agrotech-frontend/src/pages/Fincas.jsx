@@ -1,27 +1,59 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
 
 const Fincas = () => {
   const navigate = useNavigate();
   const [fincas, setFincas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState(null);
+  const [addressLabel, setAddressLabel] = useState('');
+  const [currentUserId, setCurrentUserId] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingFinca, setEditingFinca] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
     municipio: '',
+    latitud: '',
+    longitud: '',
     usuarioId: ''
   });
 
   useEffect(() => {
     fetchFincas();
+    fetchCurrentUser();
   }, []);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await api.get('/auth/me');
+      setCurrentUserId(response.data.id);
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+    }
+  };
 
   const fetchFincas = async () => {
     try {
       setLoading(true);
+      setError('');
+      setMessage('');
       const response = await api.get('/fincas');
       setFincas(response.data);
     } catch (error) {
@@ -34,24 +66,142 @@ const Fincas = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData((current) => {
+      const updated = { ...current, [name]: value };
+      const lat = Number.parseFloat(updated.latitud);
+      const lng = Number.parseFloat(updated.longitud);
+
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+        setSelectedPosition({ lat, lng });
+      } else {
+        setSelectedPosition(null);
+      }
+
+      return updated;
+    });
+  };
+
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`,
+        {
+          headers: {
+            'Accept-Language': 'es',
+            'User-Agent': 'AGROTECH-App/1.0'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json();
+      const address = data.address || {};
+      const place =
+        address.city ||
+        address.town ||
+        address.village ||
+        address.municipality ||
+        address.county ||
+        data.display_name;
+
+      setAddressLabel(place || 'Ubicación detectada');
+      setFormData((current) => {
+        if (current.municipio?.trim()) {
+          return current;
+        }
+        return { ...current, municipio: place || current.municipio };
+      });
+    } catch (error) {
+      console.error('Reverse geocode error:', error);
+    }
+  };
+
+  const updateCoordinates = (lat, lng) => {
+    setSelectedPosition({ lat, lng });
+    setFormData((current) => ({
+      ...current,
+      latitud: lat.toFixed(6),
+      longitud: lng.toFixed(6)
+    }));
+    setError('');
+    setMessage('Ubicación seleccionada. Ajusta el marcador en el mapa si necesitas mayor precisión.');
+    reverseGeocode(lat, lng);
+  };
+
+  const LocationMarker = ({ position, onUpdate }) => {
+    const map = useMapEvents({
+      click(e) {
+        onUpdate(e.latlng);
+      }
+    });
+
+    useEffect(() => {
+      if (position) {
+        map.setView(position, map.getZoom());
+      }
+    }, [position, map]);
+
+    return position ? (
+      <Marker
+        position={position}
+        draggable={true}
+        eventHandlers={{
+          dragend: (event) => {
+            const marker = event.target;
+            const newPos = marker.getLatLng();
+            onUpdate(newPos);
+          }
+        }}
+      >
+        <Popup>Arrastra el marcador para ajustar la ubicación exacta.</Popup>
+      </Marker>
+    ) : null;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const usuarioId = formData.usuarioId || currentUserId;
+    if (!usuarioId) {
+      setError('No se pudo identificar el usuario. Vuelve a iniciar sesión y prueba de nuevo.');
+      return;
+    }
+
+    const lat = Number.parseFloat(formData.latitud);
+    const lng = Number.parseFloat(formData.longitud);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setError('Debes seleccionar una ubicación válida en el mapa o ingresar latitud y longitud correctas.');
+      return;
+    }
     try {
+      const payload = {
+        nombre: formData.nombre,
+        municipio: formData.municipio,
+        latitud: parseFloat(formData.latitud),
+        longitud: parseFloat(formData.longitud),
+        usuarioId
+      };
+
       if (editingFinca) {
-        await api.put(`/fincas/${editingFinca.id}`, formData);
+        await api.put(`/fincas/${editingFinca.id}`, payload);
       } else {
-        await api.post('/fincas', formData);
+        await api.post('/fincas', payload);
       }
       setShowModal(false);
       setEditingFinca(null);
-      setFormData({ nombre: '', municipio: '', usuarioId: '' });
+      setFormData({ nombre: '', municipio: '', latitud: '', longitud: '', usuarioId: '' });
       fetchFincas();
     } catch (error) {
       console.error('Error saving finca:', error);
-      setError('Error al guardar la finca');
+      setError(
+        error.response?.data?.message ||
+        error.response?.status === 404
+          ? 'No se encontró el servicio de fincas. Verifica que el backend esté activo en http://localhost:8080.'
+          : 'Error al guardar la finca.'
+      );
+      setMessage('');
     }
   };
 
@@ -60,8 +210,16 @@ const Fincas = () => {
     setFormData({
       nombre: finca.nombre,
       municipio: finca.municipio,
-      usuarioId: finca.usuarioId
+      latitud: finca.latitud ?? '',
+      longitud: finca.longitud ?? '',
+      usuarioId: finca.usuarioId || currentUserId
     });
+    setSelectedPosition(
+      finca.latitud != null && finca.longitud != null
+        ? { lat: Number(finca.latitud), lng: Number(finca.longitud) }
+        : null
+    );
+    setAddressLabel(finca.municipio || '');
     setShowModal(true);
   };
 
@@ -77,9 +235,76 @@ const Fincas = () => {
     }
   };
 
+  const handleLoadClima = async (id) => {
+    try {
+      await api.post(`/fincas/${id}/cargar-clima`);
+      setError('');
+      setMessage('Datos climáticos solicitados correctamente.');
+    } catch (error) {
+      console.error('Error cargando clima:', error);
+      setError('Error al cargar los datos climáticos');
+      setMessage('');
+    }
+  };
+
+  const handleUseCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      setError('Geolocalización no está disponible en este navegador.');
+      return;
+    }
+
+    setLocationLoading(true);
+    setError('');
+    setMessage('Buscando ubicación actual...');
+
+    try {
+      const permissionState = await navigator.permissions?.query?.({ name: 'geolocation' });
+      if (permissionState?.state === 'denied') {
+        setError('Permisos de ubicación bloqueados. Habilítalos en el navegador para usar esta función.');
+        setLocationLoading(false);
+        return;
+      }
+    } catch (permissionError) {
+      // No action needed if permissions API is unsupported.
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        updateCoordinates(position.coords.latitude, position.coords.longitude);
+        setMessage('Ubicación actual cargada. Ajusta el marcador si necesitas más precisión.');
+        setLocationLoading(false);
+      },
+      (err) => {
+        console.error('Geolocation error:', err);
+        let errorMessage = 'No se pudo obtener la ubicación actual. Revisa permisos de ubicación y vuelve a intentarlo.';
+
+        if (err?.code === err.TIMEOUT) {
+          errorMessage = 'Tiempo de espera agotado al obtener la ubicación. Intenta nuevamente o selecciona la ubicación en el mapa.';
+        } else if (err?.code === err.PERMISSION_DENIED) {
+          errorMessage = 'Permiso de ubicación denegado. Habilítalo en el navegador y vuelve a intentarlo.';
+        } else if (err?.code === err.POSITION_UNAVAILABLE) {
+          errorMessage = 'No se pudo encontrar la ubicación actual. Verifica que el dispositivo tenga señal GPS o conexión de red.';
+        }
+
+        setError(errorMessage);
+        setLocationLoading(false);
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 45000,
+        maximumAge: 0
+      }
+    );
+  };
+
   const openNewModal = () => {
+    if (!currentUserId) {
+      fetchCurrentUser();
+    }
     setEditingFinca(null);
-    setFormData({ nombre: '', municipio: '', usuarioId: '' });
+    setFormData({ nombre: '', municipio: '', latitud: '', longitud: '', usuarioId: currentUserId || '' });
+    setSelectedPosition(null);
+    setAddressLabel('');
     setShowModal(true);
   };
 
@@ -113,6 +338,11 @@ const Fincas = () => {
           <p className="text-red-600">{error}</p>
         </div>
       )}
+      {message && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+          <p className="text-emerald-700">{message}</p>
+        </div>
+      )}
 
       {/* Fincas Grid */}
       {fincas.length > 0 ? (
@@ -127,16 +357,26 @@ const Fincas = () => {
                   <span>📍</span>
                   <span>{finca.municipio}</span>
                 </div>
+                <div className="flex items-center space-x-2 text-gray-500 text-sm mb-2">
+                  <span>📍</span>
+                  <span>Lat: {finca.latitud ?? '-'}, Lon: {finca.longitud ?? '-'}</span>
+                </div>
                 <div className="flex items-center space-x-2 text-gray-500 text-sm mb-4">
                   <span>🆔</span>
                   <span>ID: {finca.id.slice(0, 8)}...</span>
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => navigate(`/lotes?finca=${finca.id}`)}
-                    className="flex-1 px-3 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium"
+                    className="flex-1 min-w-[120px] px-3 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium"
                   >
                     Ver Lotes
+                  </button>
+                  <button
+                    onClick={() => handleLoadClima(finca.id)}
+                    className="flex-1 min-w-[120px] px-3 py-2 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors text-sm font-medium"
+                  >
+                    🌦️ Cargar Clima
                   </button>
                   <button
                     onClick={() => handleEdit(finca)}
@@ -172,40 +412,114 @@ const Fincas = () => {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-4 md:p-6 max-h-[calc(100vh-3rem)] overflow-hidden">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               {editingFinca ? 'Editar Finca' : 'Nueva Finca'}
             </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre de la Finca
-                </label>
-                <input
-                  type="text"
-                  name="nombre"
-                  value={formData.nombre}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Finca La Esperanza"
-                />
+            <form onSubmit={handleSubmit} className="flex flex-col h-full">
+              <div className="space-y-4 overflow-y-auto pr-2 max-h-[calc(100vh-18rem)]">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre de la Finca
+                  </label>
+                  <input
+                    type="text"
+                    name="nombre"
+                    value={formData.nombre}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Finca La Esperanza"
+                  />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentLocation}
+                    disabled={locationLoading}
+                    className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
+                  >
+                    {locationLoading ? 'Obteniendo ubicación...' : 'Usar ubicación actual'}
+                  </button>
+                  <p className="text-sm text-gray-500">
+                    Usa tu ubicación actual para iniciar el mapa y ajusta el marcador si necesitas mayor precisión.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Municipio
+                  </label>
+                  <input
+                    type="text"
+                    name="municipio"
+                    value={formData.municipio}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Rionegro"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Latitud
+                    </label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      name="latitud"
+                      value={formData.latitud}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="4.7110"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Longitud
+                    </label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      name="longitud"
+                      value={formData.longitud}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="-74.0721"
+                    />
+                  </div>
+                </div>
+                {addressLabel && (
+                  <div className="text-sm text-gray-600 pt-2">
+                    <span className="font-medium">Lugar detectado:</span> {addressLabel}
+                  </div>
+                )}
+                <div className="mt-4">
+                  <div className="h-64 sm:h-72 rounded-xl overflow-hidden border border-gray-200">
+                    <MapContainer
+                      center={selectedPosition || [4.711, -74.072]}
+                      zoom={selectedPosition ? 13 : 5}
+                      scrollWheelZoom={true}
+                      className="h-full w-full"
+                    >
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                      <LocationMarker
+                        position={selectedPosition}
+                        onUpdate={(latlng) => updateCoordinates(latlng.lat, latlng.lng)}
+                      />
+                    </MapContainer>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Haz clic en el mapa para seleccionar la ubicación, o arrastra el marcador si ya hay coordenadas.
+                  </p>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Municipio
-                </label>
-                <input
-                  type="text"
-                  name="municipio"
-                  value={formData.municipio}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Rionegro"
-                />
-              </div>
-              <div className="flex space-x-3 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}

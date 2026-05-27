@@ -6,5 +6,7 @@ public record FincaDTO(
         UUID id,
         String nombre,
         String municipio,
+        Double latitud,
+        Double longitud,
         UUID usuarioId
 ) {}

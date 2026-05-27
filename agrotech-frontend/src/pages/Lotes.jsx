@@ -8,6 +8,7 @@ const Lotes = () => {
   const [fincas, setFincas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingLote, setEditingLote] = useState(null);
   const [selectedFincaId, setSelectedFincaId] = useState(searchParams.get('finca') || '');
@@ -40,6 +41,7 @@ const Lotes = () => {
     } catch (error) {
       console.error('Error fetching data:', error);
       setError('Error al cargar los datos');
+      setMessage('');
     } finally {
       setLoading(false);
     }
@@ -72,10 +74,13 @@ const Lotes = () => {
       setShowModal(false);
       setEditingLote(null);
       setFormData({ nombre: '', areaHectareas: '', fincaId: '', cultivoId: '' });
+      setError('');
+      setMessage('Lote guardado correctamente.');
       fetchData();
     } catch (error) {
       console.error('Error saving lote:', error);
       setError('Error al guardar el lote');
+      setMessage('');
     }
   };
 
@@ -94,11 +99,26 @@ const Lotes = () => {
     if (window.confirm('¿Estás seguro de que deseas eliminar este lote?')) {
       try {
         await api.delete(`/lotes/${id}`);
+        setError('');
+        setMessage('Lote eliminado correctamente.');
         fetchData();
       } catch (error) {
         console.error('Error deleting lote:', error);
         setError('Error al eliminar el lote');
+        setMessage('');
       }
+    }
+  };
+
+  const handleLoadClima = async (id) => {
+    try {
+      await api.post(`/lotes/${id}/cargar-clima`);
+      setError('');
+      setMessage('Datos climáticos solicitados correctamente.');
+    } catch (error) {
+      console.error('Error cargando clima:', error);
+      setError('Error al cargar los datos climáticos');
+      setMessage('');
     }
   };
 
@@ -158,6 +178,11 @@ const Lotes = () => {
           <p className="text-red-600">{error}</p>
         </div>
       )}
+      {message && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+          <p className="text-emerald-700">{message}</p>
+        </div>
+      )}
 
       {/* Lotes Grid */}
       {lotes.length > 0 ? (
@@ -182,6 +207,12 @@ const Lotes = () => {
                     className="flex-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
                   >
                     ✏️ Editar
+                  </button>
+                  <button
+                    onClick={() => handleLoadClima(lote.id)}
+                    className="flex-1 px-3 py-2 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors text-sm font-medium"
+                  >
+                    🌦️ Cargar Clima
                   </button>
                   <button
                     onClick={() => handleDelete(lote.id)}
