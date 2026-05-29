@@ -24,7 +24,7 @@ public class FincaController {
 
     @GetMapping
     public List<FincaDTO> listar() {
-        return fincaService.listarTodas().stream()
+        return fincaService.listarPorUsuarioActual().stream()
                 .map(f -> new FincaDTO(f.getId(), f.getNombre(), f.getMunicipio(), f.getLatitud(), f.getLongitud(), f.getUsuario().getId()))
                 .collect(Collectors.toList());
     }
@@ -50,9 +50,6 @@ public class FincaController {
         finca.setMunicipio(request.municipio());
         finca.setLatitud(request.latitud());
         finca.setLongitud(request.longitud());
-        Usuario usuario = new Usuario();
-        usuario.setId(request.usuarioId());
-        finca.setUsuario(usuario);
         Finca creada = fincaService.crear(finca);
         meteoService.sincronizarClimaPorFinca(creada.getId());
         return new FincaDTO(creada.getId(), creada.getNombre(), creada.getMunicipio(), creada.getLatitud(), creada.getLongitud(), creada.getUsuario().getId());
@@ -78,6 +75,7 @@ public class FincaController {
     @PostMapping("/{id}/cargar-clima")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public void cargarClima(@PathVariable UUID id) {
+        fincaService.obtenerPorId(id); // valida que el usuario tenga acceso a esta finca
         meteoService.sincronizarClimaPorFinca(id);
     }
 }

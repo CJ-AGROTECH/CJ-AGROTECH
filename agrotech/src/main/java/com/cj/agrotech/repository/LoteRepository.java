@@ -10,4 +10,6 @@ import java.util.UUID;
 public interface LoteRepository extends JpaRepository<Lote, UUID> {
 
     List<Lote> findByFincaId(UUID fincaId);
+    List<Lote> findByFincaUsuarioId(UUID usuarioId);
+    java.util.Optional<Lote> findByNombre(String nombre);
 }

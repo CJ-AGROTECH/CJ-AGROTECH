@@ -7,9 +7,14 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [fincas, setFincas] = useState([]);
+  const [lotes, setLotes] = useState([]);
   const [dispositivos, setDispositivos] = useState([]);
+  const [selectedFincaId, setSelectedFincaId] = useState('');
+  const [selectedLoteId, setSelectedLoteId] = useState('');
   const [selectedDispositivo, setSelectedDispositivo] = useState(null);
   const [historico, setHistorico] = useState([]);
+  const [currentClima, setCurrentClima] = useState(null);
   const [eficiencia, setEficiencia] = useState(null);
   const [alertasActivas, setAlertasActivas] = useState([]);
   const [stats, setStats] = useState({
@@ -19,6 +24,9 @@ const Dashboard = () => {
     dispositivosActivos: 0
   });
 
+  const selectedFinca = fincas.find(f => f.id === selectedFincaId);
+  const selectedLote = lotes.find(l => l.id === selectedLoteId);
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -26,34 +34,37 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch dispositivos
-      const dispResponse = await api.get('/dispositivos');
-      setDispositivos(dispResponse.data);
-      
-      // Fetch alertas activas
-      const alertasResponse = await api.get('/alertas/historial/activas');
+      setError('');
+
+      const [alertasResponse, fincasResponse, lotesResponse, dispositivosResponse] = await Promise.all([
+        api.get('/alertas/historial/activas'),
+        api.get('/fincas'),
+        api.get('/lotes'),
+        api.get('/dispositivos')
+      ]);
+
+      const fincasData = fincasResponse.data;
+      const lotesData = lotesResponse.data;
+      const dispositivosData = dispositivosResponse.data;
+
       setAlertasActivas(alertasResponse.data);
-      
-      // Fetch fincas for stats
-      const fincasResponse = await api.get('/fincas');
-      const fincas = fincasResponse.data;
-      
-      // Fetch lotes for stats
-      const lotesResponse = await api.get('/lotes');
-      const lotes = lotesResponse.data;
-      
+      setFincas(fincasData);
       setStats({
-        totalFincas: fincas.length,
-        totalLotes: lotes.length,
-        totalDispositivos: dispResponse.data.length,
-        dispositivosActivos: dispResponse.data.filter(d => d.estado === 'ACTIVO').length
+        totalFincas: fincasData.length,
+        totalLotes: lotesData.length,
+        totalDispositivos: dispositivosData.length,
+        dispositivosActivos: dispositivosData.filter(d => d.estado === 'ACTIVO').length
       });
 
-      // If we have dispositivos, fetch data for the first one
-      if (dispResponse.data.length > 0) {
-        setSelectedDispositivo(dispResponse.data[0].id);
-        await fetchDispositivoData(dispResponse.data[0].id);
+      setSelectedFincaId(fincasData[0]?.id || '');
+      setLotes(lotesData);
+      setDispositivos(dispositivosData);
+
+      if (fincasData[0]?.id) {
+        await fetchLotesForFinca(fincasData[0].id, dispositivosData);
+      } else if (dispositivosData.length > 0) {
+        setSelectedDispositivo(dispositivosData[0].id);
+        await fetchDispositivoData(dispositivosData[0].id);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -63,30 +74,111 @@ const Dashboard = () => {
     }
   };
 
+  const fetchLotesForFinca = async (fincaId, currentDevices = null) => {
+    try {
+      const lotesResponse = await api.get(`/lotes/finca/${fincaId}`);
+      const lotesData = lotesResponse.data;
+      setLotes(lotesData);
+      const loteId = lotesData[0]?.id || '';
+      setSelectedLoteId(loteId);
+
+      if (loteId) {
+        await fetchDevicesForLote(loteId, currentDevices);
+      } else {
+        setDispositivos([]);
+        setSelectedDispositivo(null);
+        setHistorico([]);
+        setEficiencia(null);
+      }
+    } catch (error) {
+      console.error('Error fetching lotes para finca:', error);
+      setError('Error al cargar los lotes de la finca');
+    }
+  };
+
+  const fetchDevicesForLote = async (loteId, currentDevices = null) => {
+    try {
+      const dispositivosResponse = await api.get(`/dispositivos/lote/${loteId}`);
+      const dispositivosData = dispositivosResponse.data;
+      setDispositivos(dispositivosData);
+      const dispositivoId = dispositivosData[0]?.id || null;
+      setSelectedDispositivo(dispositivoId);
+      if (dispositivoId) {
+        await fetchDispositivoData(dispositivoId);
+      } else {
+        setHistorico([]);
+        setEficiencia(null);
+      }
+    } catch (error) {
+      console.error('Error fetching dispositivos para lote:', error);
+      setError('Error al cargar los dispositivos del lote');
+    }
+  };
+
+  const handleFincaChange = async (e) => {
+    const fincaId = e.target.value;
+    setSelectedFincaId(fincaId);
+    setSelectedLoteId('');
+    setSelectedDispositivo(null);
+    setHistorico([]);
+    setEficiencia(null);
+    if (fincaId) {
+      await fetchLotesForFinca(fincaId);
+    }
+  };
+
+  const handleLoteChange = async (e) => {
+    const loteId = e.target.value;
+    setSelectedLoteId(loteId);
+    setSelectedDispositivo(null);
+    setHistorico([]);
+    setEficiencia(null);
+    if (loteId) {
+      await fetchDevicesForLote(loteId);
+    }
+  };
+
   const fetchDispositivoData = async (dispositivoId) => {
     try {
       // Fetch histórico
       const historicoResponse = await api.get(`/dashboard/historico/${dispositivoId}`);
       const formattedHistorico = historicoResponse.data.map(d => ({
-        timestamp: new Date(d.timestamp).toLocaleString('es-CO', { 
-          day: '2-digit', 
-          month: '2-digit', 
-          hour: '2-digit', 
-          minute: '2-digit' 
+        timestamp: new Date(d.timestamp).toLocaleString('es-CO', {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
         }),
         tempAire: d.lecturas?.ambiente?.tempAire || 0,
         humAire: d.lecturas?.ambiente?.humAire || 0,
         tempSuelo: d.lecturas?.suelo?.tempSuelo || 0,
         humSuelo: d.lecturas?.suelo?.humSuelo || 0,
-        luminosidad: d.lecturas?.ambiente?.luminosidad || 0
+        precipitacion: d.lecturas?.clima?.precipitacion || 0,
+        viento: d.lecturas?.clima?.viento || 0,
+        luminosidad: d.lecturas?.ambiente?.lux || 0
       }));
       setHistorico(formattedHistorico);
 
       // Fetch eficiencia hídrica
       const efResponse = await api.get(`/dashboard/eficiencia-hidrica/${dispositivoId}`);
       setEficiencia(efResponse.data);
+
+      if (formattedHistorico.length > 0) {
+        const latest = formattedHistorico[0];
+        setCurrentClima({
+          temperatura: latest.tempAire,
+          humedad: latest.humAire,
+          fecha: latest.timestamp,
+          ubicacion: selectedLote ? `${selectedLote.nombre} • ${selectedFinca?.municipio || ''}` : '',
+          precipitacion: latest.precipitacion,
+          viento: latest.viento
+        });
+      } else {
+        setCurrentClima(null);
+      }
     } catch (error) {
       console.error('Error fetching dispositivo data:', error);
+      setCurrentClima(null);
     }
   };
 
@@ -114,17 +206,48 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard AGROTECH</h1>
           <p className="text-gray-600 mt-1">Monitoreo en tiempo real de tus cultivos</p>
         </div>
-        <div className="mt-4 md:mt-0">
-          <select
-            value={selectedDispositivo || ''}
-            onChange={handleDispositivoChange}
-            className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          >
-            <option value="">Seleccionar dispositivo</option>
-            {dispositivos.map(d => (
-              <option key={d.id} value={d.id}>{d.nombre}</option>
-            ))}
-          </select>
+        <div className="space-y-3 mt-4 md:mt-0 md:flex md:items-center md:space-x-3 md:space-y-0">
+          <div className="min-w-[200px]">
+            <label className="block text-sm font-medium text-gray-600 mb-1">Finca</label>
+            <select
+              value={selectedFincaId || ''}
+              onChange={handleFincaChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            >
+              <option value="">Seleccionar finca</option>
+              {fincas.map(f => (
+                <option key={f.id} value={f.id}>{f.nombre}</option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-[200px]">
+            <label className="block text-sm font-medium text-gray-600 mb-1">Lote</label>
+            <select
+              value={selectedLoteId || ''}
+              onChange={handleLoteChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              disabled={!selectedFincaId}
+            >
+              <option value="">Seleccionar lote</option>
+              {lotes.map(l => (
+                <option key={l.id} value={l.id}>{l.nombre}</option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-[200px]">
+            <label className="block text-sm font-medium text-gray-600 mb-1">Dispositivo</label>
+            <select
+              value={selectedDispositivo || ''}
+              onChange={handleDispositivoChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              disabled={!selectedLoteId}
+            >
+              <option value="">Seleccionar dispositivo</option>
+              {dispositivos.map(d => (
+                <option key={d.id} value={d.id}>{d.nombre}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -132,6 +255,49 @@ const Dashboard = () => {
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-600">{error}</p>
+        </div>
+      )}
+
+      {selectedFinca && (
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div className="bg-white rounded-3xl shadow-lg p-6 border border-gray-100">
+            <p className="text-sm text-gray-500 uppercase tracking-wide">Ubicación del lote</p>
+            <h2 className="mt-2 text-2xl font-semibold text-gray-900">{selectedLote ? selectedLote.nombre : 'Sin lote seleccionado'}</h2>
+            <p className="mt-3 text-gray-600">Finca: <span className="font-medium">{selectedFinca.nombre}</span></p>
+            <p className="text-gray-600">Municipio: <span className="font-medium">{selectedFinca.municipio}</span></p>
+            <p className="text-gray-600">Coordenadas: <span className="font-medium">{selectedLote?.fincaLatitud?.toFixed(6) ?? '-'} , {selectedLote?.fincaLongitud?.toFixed(6) ?? '-'}</span></p>
+            <p className="text-gray-500 text-sm mt-2">Esta es la ubicación exacta asociada al lote seleccionado.</p>
+          </div>
+
+          <div className="xl:col-span-2 bg-gradient-to-r from-sky-500 to-cyan-600 rounded-3xl shadow-lg p-6 text-white">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-wide opacity-80">Clima actual</p>
+                <h2 className="mt-2 text-4xl font-semibold">{currentClima ? `${currentClima.temperatura?.toFixed(1)} °C` : 'No disponible'}</h2>
+                <p className="mt-1 text-sm opacity-90">{currentClima?.fecha || 'Último registro reciente'}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm opacity-90">Humedad</p>
+                <p className="text-4xl font-semibold">{currentClima ? `${currentClima.humedad?.toFixed(0)}%` : '--'}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+              <div className="bg-white/10 rounded-3xl p-4">
+                <p className="text-xs uppercase opacity-80">Precipitación</p>
+                <p className="mt-2 text-2xl font-semibold">{currentClima ? `${currentClima.precipitacion?.toFixed(1)} mm` : '--'}</p>
+              </div>
+              <div className="bg-white/10 rounded-3xl p-4">
+                <p className="text-xs uppercase opacity-80">Viento</p>
+                <p className="mt-2 text-2xl font-semibold">{currentClima ? `${currentClima.viento?.toFixed(1)} m/s` : '--'}</p>
+              </div>
+              <div className="bg-white/10 rounded-3xl p-4">
+                <p className="text-xs uppercase opacity-80">Lugar</p>
+                <p className="mt-2 text-xl font-semibold">{selectedLote ? selectedLote.nombre : 'Sin lote'}</p>
+                <p className="text-sm opacity-80 mt-1">{selectedFinca.municipio}, Antioquia</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

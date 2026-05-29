@@ -3,6 +3,7 @@ package com.cj.agrotech.domain.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,5 +30,6 @@ public class Lote {
     private CatalogoCultivo cultivo;
 
     @OneToMany(mappedBy = "lote", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Dispositivo> dispositivos;
+    @Builder.Default
+    private List<Dispositivo> dispositivos = new ArrayList<>();
 }

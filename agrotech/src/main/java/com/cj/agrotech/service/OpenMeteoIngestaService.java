@@ -32,9 +32,9 @@ public class OpenMeteoIngestaService {
 
     public void ingestarDatosClimaticos(UUID dispositivoId, UUID loteId, Double lat, Double lon) {
         try {
-            String url = "https://api.open-meteo.com/v1/forecast?" +
+                String url = "https://api.open-meteo.com/v1/forecast?" +
                     "latitude=" + lat + "&longitude=" + lon + "&" +
-                    "current_weather=true&hourly=temperature_2m,relativehumidity_2m,surface_pressure,precipitation,wind_speed_10m,soil_temperature_0_to_7cm,soil_moisture_0_to_7cm&timezone=auto";
+                    "current_weather=true&hourly=temperature_2m,relativehumidity_2m,precipitation,wind_speed_10m,soil_temperature_0_to_7cm,soil_moisture_0_to_7cm&timezone=auto";
 
             String jsonResponse = restTemplate.getForObject(url, String.class);
             JsonNode response = objectMapper.readTree(jsonResponse);

@@ -52,7 +52,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth ->
                         auth.requestMatchers("/api/auth/**").permitAll()
+                                .requestMatchers("/api/health").permitAll()
                                 .requestMatchers("/api/telemetria/captura").permitAll() // Para captura de sensores
+                                .requestMatchers("/api/telemetria/simular").permitAll() // Demo without physical ESP32
                                 .anyRequest().authenticated()
                 );
 

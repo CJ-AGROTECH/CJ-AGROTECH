@@ -7,5 +7,8 @@ public record LoteDTO(
         String nombre,
         Double areaHectareas,
         UUID fincaId,
-        UUID cultivoId
+        UUID cultivoId,
+        Double fincaLatitud,
+        Double fincaLongitud,
+        String fincaMunicipio
 ) {}

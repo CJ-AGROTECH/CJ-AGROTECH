@@ -4,6 +4,7 @@ import com.cj.agrotech.domain.enums.Rol;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,5 +30,6 @@ public class Usuario {
     private Rol rol;
 
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Finca> fincas;
+    @Builder.Default
+    private List<Finca> fincas = new ArrayList<>();
 }

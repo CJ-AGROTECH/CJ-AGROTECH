@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -20,6 +21,7 @@ public class AutomatizacionIngestaService {
 
     // Se ejecuta automáticamente cada 15 minutos (900000 ms)
     @Scheduled(fixedRate = 900000)
+    @Transactional(readOnly = true)
     public void recolectarDatosClimaticosAutomaticamente() {
         log.info("Iniciando recolección automática de datos de sensores (Open-Meteo)...");
 

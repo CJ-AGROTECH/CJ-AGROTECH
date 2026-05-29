@@ -1,5 +1,6 @@
 package com.cj.agrotech.service;
 
+import com.cj.agrotech.config.UserDetailsImpl;
 import com.cj.agrotech.domain.entity.Finca;
 import com.cj.agrotech.domain.entity.Lote;
 import com.cj.agrotech.domain.entity.CatalogoCultivo;
@@ -9,6 +10,8 @@ import com.cj.agrotech.repository.CatalogoCultivoRepository;
 import com.cj.agrotech.repository.FincaRepository;
 import com.cj.agrotech.repository.LoteRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,18 +28,28 @@ public class LoteService {
 
     @Transactional(readOnly = true)
     public List<Lote> listarTodos() {
-        return loteRepository.findAll();
+        UUID usuarioId = obtenerUsuarioAutenticadoId();
+        return loteRepository.findByFincaUsuarioId(usuarioId);
     }
 
     @Transactional(readOnly = true)
     public List<Lote> listarPorFinca(UUID fincaId) {
+        Finca finca = fincaRepository.findById(fincaId)
+                .orElseThrow(() -> new BadRequestException("Finca no encontrada."));
+        if (!finca.getUsuario().getId().equals(obtenerUsuarioAutenticadoId())) {
+            throw new ResourceNotFoundException("Lote no encontrado.");
+        }
         return loteRepository.findByFincaId(fincaId);
     }
 
     @Transactional(readOnly = true)
     public Lote obtenerPorId(UUID id) {
-        return loteRepository.findById(id)
+        Lote lote = loteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Lote no encontrado."));
+        if (lote.getFinca() == null || lote.getFinca().getUsuario() == null || !lote.getFinca().getUsuario().getId().equals(obtenerUsuarioAutenticadoId())) {
+            throw new ResourceNotFoundException("Lote no encontrado.");
+        }
+        return lote;
     }
 
     @Transactional
@@ -70,9 +83,21 @@ public class LoteService {
 
     @Transactional
     public void eliminar(UUID id) {
-        if (!loteRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Lote no encontrado.");
+        Lote existente = obtenerPorId(id);
+        loteRepository.delete(existente);
+    }
+
+    private UUID obtenerUsuarioAutenticadoId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal() == null) {
+            throw new BadRequestException("Usuario no autenticado.");
         }
-        loteRepository.deleteById(id);
+
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserDetailsImpl userDetails) {
+            return userDetails.getId();
+        }
+
+        throw new BadRequestException("No se pudo identificar el usuario autenticado.");
     }
 }

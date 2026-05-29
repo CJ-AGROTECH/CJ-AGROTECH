@@ -76,6 +76,10 @@ services:
       MONGO_HOST: mongo-db
       MONGO_PORT: 27017
       MONGO_DB: ${MONGO_DB:-agrotech_telemetria}
+      SPRING_DATA_MONGODB_URI: mongodb://mongo-db:27017/${MONGO_DB:-agrotech_telemetria}
+      SPRING_DATA_MONGODB_HOST: mongo-db
+      SPRING_DATA_MONGODB_PORT: 27017
+      SPRING_DATA_MONGODB_DATABASE: ${MONGO_DB:-agrotech_telemetria}
       JWT_SECRET: ${JWT_SECRET:-mySecretKeyForJWTTokenGenerationAndValidationPurposesOnly}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -108,7 +112,7 @@ services:
     ports:
       - "3000:80"
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api}
+      VITE_API_URL: ${VITE_API_URL:-http://backend:8080/api}
     networks:
       - agrotech-network
     restart: unless-stopped

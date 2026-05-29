@@ -15,6 +15,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
+const DEFAULT_ANTIOQUIA = { lat: 6.2442, lng: -75.5812 };
+
 const Fincas = () => {
   const navigate = useNavigate();
   const [fincas, setFincas] = useState([]);
@@ -24,30 +26,18 @@ const Fincas = () => {
   const [locationLoading, setLocationLoading] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [addressLabel, setAddressLabel] = useState('');
-  const [currentUserId, setCurrentUserId] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingFinca, setEditingFinca] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
     municipio: '',
     latitud: '',
-    longitud: '',
-    usuarioId: ''
+    longitud: ''
   });
 
   useEffect(() => {
     fetchFincas();
-    fetchCurrentUser();
   }, []);
-
-  const fetchCurrentUser = async () => {
-    try {
-      const response = await api.get('/auth/me');
-      setCurrentUserId(response.data.id);
-    } catch (error) {
-      console.error('Error fetching current user:', error);
-    }
-  };
 
   const fetchFincas = async () => {
     try {
@@ -163,12 +153,6 @@ const Fincas = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const usuarioId = formData.usuarioId || currentUserId;
-    if (!usuarioId) {
-      setError('No se pudo identificar el usuario. Vuelve a iniciar sesión y prueba de nuevo.');
-      return;
-    }
-
     const lat = Number.parseFloat(formData.latitud);
     const lng = Number.parseFloat(formData.longitud);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
@@ -180,8 +164,7 @@ const Fincas = () => {
         nombre: formData.nombre,
         municipio: formData.municipio,
         latitud: parseFloat(formData.latitud),
-        longitud: parseFloat(formData.longitud),
-        usuarioId
+        longitud: parseFloat(formData.longitud)
       };
 
       if (editingFinca) {
@@ -191,7 +174,7 @@ const Fincas = () => {
       }
       setShowModal(false);
       setEditingFinca(null);
-      setFormData({ nombre: '', municipio: '', latitud: '', longitud: '', usuarioId: '' });
+      setFormData({ nombre: '', municipio: '', latitud: '', longitud: '' });
       fetchFincas();
     } catch (error) {
       console.error('Error saving finca:', error);
@@ -211,8 +194,7 @@ const Fincas = () => {
       nombre: finca.nombre,
       municipio: finca.municipio,
       latitud: finca.latitud ?? '',
-      longitud: finca.longitud ?? '',
-      usuarioId: finca.usuarioId || currentUserId
+      longitud: finca.longitud ?? ''
     });
     setSelectedPosition(
       finca.latitud != null && finca.longitud != null
@@ -298,11 +280,8 @@ const Fincas = () => {
   };
 
   const openNewModal = () => {
-    if (!currentUserId) {
-      fetchCurrentUser();
-    }
     setEditingFinca(null);
-    setFormData({ nombre: '', municipio: '', latitud: '', longitud: '', usuarioId: currentUserId || '' });
+    setFormData({ nombre: '', municipio: '', latitud: '', longitud: '' });
     setSelectedPosition(null);
     setAddressLabel('');
     setShowModal(true);
@@ -433,16 +412,25 @@ const Fincas = () => {
                   />
                 </div>
                 <div className="flex flex-col gap-3">
-                  <button
-                    type="button"
-                    onClick={handleUseCurrentLocation}
-                    disabled={locationLoading}
-                    className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
-                  >
-                    {locationLoading ? 'Obteniendo ubicación...' : 'Usar ubicación actual'}
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      type="button"
+                      onClick={handleUseCurrentLocation}
+                      disabled={locationLoading}
+                      className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
+                    >
+                      {locationLoading ? 'Obteniendo ubicación...' : 'Usar ubicación actual'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateCoordinates(DEFAULT_ANTIOQUIA.lat, DEFAULT_ANTIOQUIA.lng)}
+                      className="w-full sm:w-auto px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                    >
+                      Usar Antioquia, Colombia
+                    </button>
+                  </div>
                   <p className="text-sm text-gray-500">
-                    Usa tu ubicación actual para iniciar el mapa y ajusta el marcador si necesitas mayor precisión.
+                    Usa tu ubicación actual o comienza con la región por defecto de Antioquia, Colombia.
                   </p>
                 </div>
                 <div>
@@ -499,8 +487,8 @@ const Fincas = () => {
                 <div className="mt-4">
                   <div className="h-64 sm:h-72 rounded-xl overflow-hidden border border-gray-200">
                     <MapContainer
-                      center={selectedPosition || [4.711, -74.072]}
-                      zoom={selectedPosition ? 13 : 5}
+                      center={selectedPosition || DEFAULT_ANTIOQUIA}
+                      zoom={selectedPosition ? 13 : 8}
                       scrollWheelZoom={true}
                       className="h-full w-full"
                     >

@@ -1,5 +1,6 @@
 package com.cj.agrotech.service;
 
+import com.cj.agrotech.config.UserDetailsImpl;
 import com.cj.agrotech.domain.entity.Dispositivo;
 import com.cj.agrotech.domain.entity.Lote;
 import com.cj.agrotech.domain.entity.Mantenimiento;
@@ -10,6 +11,8 @@ import com.cj.agrotech.repository.DispositivoRepository;
 import com.cj.agrotech.repository.LoteRepository;
 import com.cj.agrotech.repository.MantenimientoRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,11 +31,17 @@ public class DispositivoService {
 
     @Transactional(readOnly = true)
     public List<Dispositivo> listarTodos() {
-        return dispositivoRepository.findAll();
+        UUID usuarioId = obtenerUsuarioAutenticadoId();
+        return dispositivoRepository.findByLoteFincaUsuarioId(usuarioId);
     }
 
     @Transactional(readOnly = true)
     public List<Dispositivo> listarPorLote(UUID loteId) {
+        Lote lote = loteRepository.findById(loteId)
+                .orElseThrow(() -> new BadRequestException("Lote no encontrado."));
+        if (lote.getFinca() == null || lote.getFinca().getUsuario() == null || !lote.getFinca().getUsuario().getId().equals(obtenerUsuarioAutenticadoId())) {
+            throw new ResourceNotFoundException("Dispositivo no encontrado.");
+        }
         return dispositivoRepository.findByLoteId(loteId);
     }
 
@@ -43,8 +52,13 @@ public class DispositivoService {
 
     @Transactional(readOnly = true)
     public Dispositivo obtenerPorId(UUID id) {
-        return dispositivoRepository.findById(id)
+        Dispositivo dispositivo = dispositivoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Dispositivo no encontrado."));
+        if (dispositivo.getLote() == null || dispositivo.getLote().getFinca() == null || dispositivo.getLote().getFinca().getUsuario() == null ||
+                !dispositivo.getLote().getFinca().getUsuario().getId().equals(obtenerUsuarioAutenticadoId())) {
+            throw new ResourceNotFoundException("Dispositivo no encontrado.");
+        }
+        return dispositivo;
     }
 
     @Transactional(readOnly = true)
@@ -58,9 +72,12 @@ public class DispositivoService {
         if (dispositivoRepository.findByMacAddress(dispositivo.getMacAddress()).isPresent()) {
             throw new BadRequestException("MAC Address ya registrada.");
         }
-        // Validar lote
+        // Validar lote y propiedad
         Lote lote = loteRepository.findById(dispositivo.getLote().getId())
                 .orElseThrow(() -> new BadRequestException("Lote no encontrado."));
+        if (lote.getFinca() == null || lote.getFinca().getUsuario() == null || !lote.getFinca().getUsuario().getId().equals(obtenerUsuarioAutenticadoId())) {
+            throw new BadRequestException("No tienes permisos para crear un dispositivo en este lote.");
+        }
         dispositivo.setLote(lote);
         dispositivo.setUltimaSincronizacion(LocalDateTime.now());
         return dispositivoRepository.save(dispositivo);
@@ -96,18 +113,29 @@ public class DispositivoService {
 
     @Transactional
     public void eliminar(UUID id) {
-        if (!dispositivoRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Dispositivo no encontrado.");
-        }
-        dispositivoRepository.deleteById(id);
+        Dispositivo existente = obtenerPorId(id);
+        dispositivoRepository.delete(existente);
     }
 
     @Transactional
     public Mantenimiento registrarMantenimiento(Mantenimiento mantenimiento) {
         // Validar dispositivo
-        Dispositivo dispositivo = dispositivoRepository.findById(mantenimiento.getDispositivo().getId())
-                .orElseThrow(() -> new BadRequestException("Dispositivo no encontrado."));
+        Dispositivo dispositivo = obtenerPorId(mantenimiento.getDispositivo().getId());
         mantenimiento.setDispositivo(dispositivo);
         return mantenimientoRepository.save(mantenimiento);
+    }
+
+    private UUID obtenerUsuarioAutenticadoId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal() == null) {
+            throw new BadRequestException("Usuario no autenticado.");
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserDetailsImpl userDetails) {
+            return userDetails.getId();
+        }
+
+        throw new BadRequestException("No se pudo identificar el usuario autenticado.");
     }
 }

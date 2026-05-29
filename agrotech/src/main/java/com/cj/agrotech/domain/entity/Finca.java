@@ -3,6 +3,7 @@ package com.cj.agrotech.domain.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,5 +32,6 @@ public class Finca {
     private Usuario usuario;
 
     @OneToMany(mappedBy = "finca", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Lote> lotes;
+    @Builder.Default
+    private List<Lote> lotes = new ArrayList<>();
 }

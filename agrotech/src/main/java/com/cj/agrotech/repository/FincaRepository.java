@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface FincaRepository extends JpaRepository<Finca, UUID> {
     List<Finca> findByUsuarioId(UUID id);
+    java.util.Optional<Finca> findByNombre(String nombre);
 }

@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,8 +35,10 @@ public class Dispositivo {
     private Lote lote;
 
     @OneToMany(mappedBy = "dispositivo", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<ConfiguracionAlerta> configuracionesAlerta;
+    @Builder.Default
+    private List<ConfiguracionAlerta> configuracionesAlerta = new ArrayList<>();
 
     @OneToMany(mappedBy = "dispositivo", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<HistorialAlerta> historialAlertas;
+    @Builder.Default
+    private List<HistorialAlerta> historialAlertas = new ArrayList<>();
 }

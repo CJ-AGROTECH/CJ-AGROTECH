@@ -24,21 +24,34 @@ public class LoteController {
     @GetMapping
     public List<LoteDTO> listar() {
         return loteService.listarTodos().stream()
-                .map(l -> new LoteDTO(l.getId(), l.getNombre(), l.getAreaHectareas(), l.getFinca().getId(), l.getCultivo().getId()))
+                .map(l -> toLoteDTO(l))
                 .collect(Collectors.toList());
     }
 
     @GetMapping("/finca/{fincaId}")
     public List<LoteDTO> listarPorFinca(@PathVariable UUID fincaId) {
         return loteService.listarPorFinca(fincaId).stream()
-                .map(l -> new LoteDTO(l.getId(), l.getNombre(), l.getAreaHectareas(), l.getFinca().getId(), l.getCultivo().getId()))
+                .map(l -> toLoteDTO(l))
                 .collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")
     public LoteDTO obtenerPorId(@PathVariable UUID id) {
         Lote l = loteService.obtenerPorId(id);
-        return new LoteDTO(l.getId(), l.getNombre(), l.getAreaHectareas(), l.getFinca().getId(), l.getCultivo().getId());
+        return toLoteDTO(l);
+    }
+
+    private LoteDTO toLoteDTO(Lote lote) {
+        return new LoteDTO(
+                lote.getId(),
+                lote.getNombre(),
+                lote.getAreaHectareas(),
+                lote.getFinca().getId(),
+                lote.getCultivo().getId(),
+                lote.getFinca().getLatitud(),
+                lote.getFinca().getLongitud(),
+                lote.getFinca().getMunicipio()
+        );
     }
 
     @PostMapping
@@ -52,7 +65,7 @@ public class LoteController {
         lote.setCultivo(new com.cj.agrotech.domain.entity.CatalogoCultivo());
         lote.getCultivo().setId(request.cultivoId());
         Lote creado = loteService.crear(lote);
-        return new LoteDTO(creado.getId(), creado.getNombre(), creado.getAreaHectareas(), creado.getFinca().getId(), creado.getCultivo().getId());
+        return toLoteDTO(creado);
     }
 
     @PutMapping("/{id}")
@@ -69,7 +82,7 @@ public class LoteController {
             datos.getCultivo().setId(request.cultivoId());
         }
         Lote actualizado = loteService.actualizar(id, datos);
-        return new LoteDTO(actualizado.getId(), actualizado.getNombre(), actualizado.getAreaHectareas(), actualizado.getFinca().getId(), actualizado.getCultivo().getId());
+        return toLoteDTO(actualizado);
     }
 
     @PostMapping("/{id}/cargar-clima")

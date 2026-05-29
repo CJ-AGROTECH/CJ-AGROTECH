@@ -11,4 +11,5 @@ public interface DispositivoRepository extends JpaRepository<Dispositivo, UUID> 
     Optional<Dispositivo> findByMacAddress(String macAddress);
 
     List<Dispositivo> findByLoteId(UUID loteId);
+    List<Dispositivo> findByLoteFincaUsuarioId(UUID usuarioId);
 }
