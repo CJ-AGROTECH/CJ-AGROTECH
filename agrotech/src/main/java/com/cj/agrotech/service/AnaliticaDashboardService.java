@@ -1,6 +1,8 @@
 package com.cj.agrotech.service;
 
 import com.cj.agrotech.domain.document.Telemetria;
+import com.cj.agrotech.dto.ClimaActualDTO;
+import com.cj.agrotech.exception.ResourceNotFoundException;
 import com.cj.agrotech.repository.TelemetriaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
