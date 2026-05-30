@@ -6,6 +6,7 @@ const Lotes = () => {
   const [searchParams] = useSearchParams();
   const [lotes, setLotes] = useState([]);
   const [fincas, setFincas] = useState([]);
+  const [cultivos, setCultivos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -27,9 +28,13 @@ const Lotes = () => {
     try {
       setLoading(true);
       
-      // Fetch fincas
-      const fincasResponse = await api.get('/fincas');
+      // Fetch fincas and cultivos in parallel
+      const [fincasResponse, cultivosResponse] = await Promise.all([
+        api.get('/fincas'),
+        api.get('/cultivos')
+      ]);
       setFincas(fincasResponse.data);
+      setCultivos(cultivosResponse.data);
       
       // Fetch lotes (filtered by finca if selected)
       let lotesUrl = '/lotes';
@@ -128,7 +133,7 @@ const Lotes = () => {
       nombre: '', 
       areaHectareas: '', 
       fincaId: selectedFincaId || (fincas.length > 0 ? fincas[0].id : ''), 
-      cultivoId: '' 
+      cultivoId: cultivos.length > 0 ? cultivos[0].id : '' 
     });
     setShowModal(true);
   };
@@ -290,6 +295,23 @@ const Lotes = () => {
                   <option value="">Seleccionar finca</option>
                   {fincas.map(finca => (
                     <option key={finca.id} value={finca.id}>{finca.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cultivo
+                </label>
+                <select
+                  name="cultivoId"
+                  value={formData.cultivoId}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">Seleccionar cultivo</option>
+                  {cultivos.map(cultivo => (
+                    <option key={cultivo.id} value={cultivo.id}>{cultivo.nombre}</option>
                   ))}
                 </select>
               </div>

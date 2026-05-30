@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface TelemetriaRepository extends MongoRepository<Telemetria, String> {
     List<Telemetria> findByDispositivoIdOrderByTimestampDesc(UUID dispositivoId);
+    Telemetria findTopByLoteIdOrderByTimestampDesc(UUID loteId);
 }

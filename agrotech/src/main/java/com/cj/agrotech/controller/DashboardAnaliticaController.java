@@ -1,6 +1,7 @@
 package com.cj.agrotech.controller;
 
 import com.cj.agrotech.domain.document.Telemetria;
+import com.cj.agrotech.dto.ClimaActualDTO;
 import com.cj.agrotech.service.AnaliticaDashboardService;
 import com.cj.agrotech.service.ExportacionService;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,11 @@ public class DashboardAnaliticaController {
     @GetMapping("/eficiencia-hidrica/{dispositivoId}")
     public Map<String, Object> obtenerEficienciaHidrica(@PathVariable UUID dispositivoId) {
         return analiticaService.calcularEficienciaHidrica(dispositivoId);
+    }
+
+    @GetMapping("/clima-lote/{loteId}")
+    public ClimaActualDTO obtenerClimaPorLote(@PathVariable UUID loteId) {
+        return analiticaService.obtenerUltimoClimaPorLote(loteId);
     }
 
     @GetMapping("/exportar/{dispositivoId}")

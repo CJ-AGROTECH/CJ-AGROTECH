@@ -48,9 +48,7 @@ public class MeteoService {
         }
 
         for (Lote lote : lotes) {
-            if (shouldIngestForLote(lote)) {
-                ingestClimaForCoordinates(lote.getId(), latitud, longitud);
-            }
+            ingestClimaForLote(lote, latitud, longitud);
         }
     }
 
@@ -67,9 +65,7 @@ public class MeteoService {
         Double latitud = finca.getLatitud();
         Double longitud = finca.getLongitud();
 
-        if (shouldIngestForLote(lote)) {
-            ingestClimaForLote(lote, latitud, longitud);
-        }
+        ingestClimaForLote(lote, latitud, longitud);
     }
 
     private boolean shouldIngestForLote(Lote lote) {

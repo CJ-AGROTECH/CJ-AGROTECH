@@ -59,4 +59,23 @@ public class AnaliticaDashboardService {
         }
         return csv.toString();
     }
+
+    public ClimaActualDTO obtenerUltimoClimaPorLote(UUID loteId) {
+        Telemetria ultimo = telemetriaRepository.findTopByLoteIdOrderByTimestampDesc(loteId);
+        if (ultimo == null || ultimo.getLecturas() == null) {
+            throw new ResourceNotFoundException("No hay datos climáticos para el lote solicitado.");
+        }
+
+        return new ClimaActualDTO(
+                ultimo.getDispositivoId(),
+                ultimo.getTimestamp(),
+                ultimo.getLecturas().getAmbiente() != null ? ultimo.getLecturas().getAmbiente().getTempAire() : null,
+                ultimo.getLecturas().getAmbiente() != null ? ultimo.getLecturas().getAmbiente().getHumAire() : null,
+                ultimo.getLecturas().getAmbiente() != null ? ultimo.getLecturas().getAmbiente().getPresion() : null,
+                ultimo.getLecturas().getClima() != null ? ultimo.getLecturas().getClima().getPrecipitacion() : null,
+                ultimo.getLecturas().getClima() != null ? ultimo.getLecturas().getClima().getViento() : null,
+                ultimo.getLecturas().getSuelo() != null ? ultimo.getLecturas().getSuelo().getHumSuelo() : null,
+                ultimo.getLecturas().getSuelo() != null ? ultimo.getLecturas().getSuelo().getTempSuelo() : null
+        );
+    }
 }

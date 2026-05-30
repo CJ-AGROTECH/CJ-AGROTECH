@@ -23,6 +23,7 @@ const Fincas = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [notification, setNotification] = useState({ open: false, title: '', message: '', type: '' });
   const [locationLoading, setLocationLoading] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [addressLabel, setAddressLabel] = useState('');
@@ -188,6 +189,14 @@ const Fincas = () => {
     }
   };
 
+  const showNotification = (title, message, type = 'success') => {
+    setNotification({ open: true, title, message, type });
+  };
+
+  const closeNotification = () => {
+    setNotification((current) => ({ ...current, open: false }));
+  };
+
   const handleEdit = (finca) => {
     setEditingFinca(finca);
     setFormData({
@@ -222,10 +231,20 @@ const Fincas = () => {
       await api.post(`/fincas/${id}/cargar-clima`);
       setError('');
       setMessage('Datos climáticos solicitados correctamente.');
+      showNotification(
+        'Clima cargado',
+        'Datos climáticos cargados correctamente. Visualízalos en el dashboard.',
+        'success'
+      );
     } catch (error) {
       console.error('Error cargando clima:', error);
       setError('Error al cargar los datos climáticos');
       setMessage('');
+      showNotification(
+        'Error',
+        'No se pudo cargar los datos climáticos. Verifica la conexión y vuelve a intentarlo.',
+        'error'
+      );
     }
   };
 
@@ -320,6 +339,38 @@ const Fincas = () => {
       {message && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
           <p className="text-emerald-700">{message}</p>
+        </div>
+      )}
+
+      {notification.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className={`w-full max-w-md rounded-3xl p-6 shadow-2xl ${notification.type === 'error' ? 'bg-red-50 border-red-200 border' : 'bg-white border-gray-200'}`}>
+            <div className="mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">{notification.title}</h3>
+              <p className="mt-2 text-gray-600">{notification.message}</p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              {notification.type === 'success' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeNotification();
+                    navigate('/dashboard');
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Ver dashboard
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={closeNotification}
+                className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
