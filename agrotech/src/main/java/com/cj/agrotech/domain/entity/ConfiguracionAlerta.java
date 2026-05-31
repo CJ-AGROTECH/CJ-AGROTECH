@@ -22,17 +22,30 @@ public class ConfiguracionAlerta {
     private VariableSensor variable;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column
     private CondicionAlerta condicion;
 
-    @Column(nullable = false)
+    @Column
     private Double umbral;
+
+    @Column(name = "umbral_min")
+    private Double umbralMin;
+
+    @Column(name = "umbral_max")
+    private Double umbralMax;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PrioridadAlerta prioridad;
 
+    @Column(length = 500)
+    private String mensaje;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dispositivo_id", nullable = false)
+    @JoinColumn(name = "dispositivo_id")
     private Dispositivo dispositivo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lote_id")
+    private Lote lote;
 }

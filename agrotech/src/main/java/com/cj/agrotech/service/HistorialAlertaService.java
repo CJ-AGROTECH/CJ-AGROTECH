@@ -21,23 +21,23 @@ public class HistorialAlertaService {
 
     @Transactional(readOnly = true)
     public List<HistorialAlerta> listarTodos() {
-        return historialAlertaRepository.findByLeidaFalseAndDispositivoLoteFincaUsuarioId(obtenerUsuarioAutenticadoId());
+        return historialAlertaRepository.findByLeidaFalseAndUsuarioId(obtenerUsuarioAutenticadoId());
     }
 
     @Transactional(readOnly = true)
     public HistorialAlerta obtenerPorId(UUID id) {
-        return historialAlertaRepository.findByIdAndDispositivoLoteFincaUsuarioId(id, obtenerUsuarioAutenticadoId())
+        return historialAlertaRepository.findByIdAndUsuarioId(id, obtenerUsuarioAutenticadoId())
                 .orElseThrow(() -> new ResourceNotFoundException("Historial de alerta no encontrado o no pertenece al usuario."));
     }
 
     @Transactional(readOnly = true)
     public List<HistorialAlerta> obtenerAlertasNoLeidas() {
-        return historialAlertaRepository.findByLeidaFalseAndDispositivoLoteFincaUsuarioId(obtenerUsuarioAutenticadoId());
+        return historialAlertaRepository.findByLeidaFalseAndUsuarioId(obtenerUsuarioAutenticadoId());
     }
 
     @Transactional(readOnly = true)
     public List<HistorialAlerta> obtenerAlertasNoVistas() {
-        return historialAlertaRepository.findByLeidaFalseAndDispositivoLoteFincaUsuarioId(obtenerUsuarioAutenticadoId());
+        return historialAlertaRepository.findByLeidaFalseAndUsuarioId(obtenerUsuarioAutenticadoId());
     }
 
     @Transactional
@@ -60,7 +60,7 @@ public class HistorialAlertaService {
     @Transactional
     public void eliminar(UUID id) {
         UUID usuarioId = obtenerUsuarioAutenticadoId();
-        if (!historialAlertaRepository.existsByIdAndDispositivoLoteFincaUsuarioId(id, usuarioId)) {
+        if (!historialAlertaRepository.existsByIdAndUsuarioId(id, usuarioId)) {
             throw new ResourceNotFoundException("Historial de alerta no encontrado o no pertenece al usuario.");
         }
         historialAlertaRepository.deleteById(id);

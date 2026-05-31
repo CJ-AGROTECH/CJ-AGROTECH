@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface ConfiguracionAlertaRepository extends JpaRepository<ConfiguracionAlerta, UUID> {
     List<ConfiguracionAlerta> findByDispositivoId(UUID dispositivoId);
+    List<ConfiguracionAlerta> findByLoteId(UUID loteId);
 }

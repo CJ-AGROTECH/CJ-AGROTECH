@@ -5,8 +5,10 @@ import api from '../services/api';
 const Layout = ({ children }) => {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [alertasCount, setAlertasCount] = useState(0);
+  const [alertas, setAlertas] = useState([]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -34,6 +36,7 @@ const Layout = ({ children }) => {
   const fetchAlertas = async () => {
     try {
       const response = await api.get('/alertas/historial/activas');
+      setAlertas(response.data);
       setAlertasCount(response.data.length);
     } catch (error) {
       console.error('Error fetching alertas:', error);
@@ -94,7 +97,63 @@ const Layout = ({ children }) => {
             </div>
 
             {/* User Menu */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 relative">
+              <button
+                type="button"
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="relative p-2 rounded-lg hover:bg-gray-100"
+              >
+                <span className="text-xl">🔔</span>
+                {alertasCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full h-5 w-5 flex items-center justify-center">
+                    {alertasCount}
+                  </span>
+                )}
+              </button>
+              {notificationsOpen && (
+                <div className="absolute right-0 top-14 z-50 w-96 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+                  <div className="p-4 border-b border-gray-100 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-900">Notificaciones</h3>
+                      <button
+                        type="button"
+                        onClick={() => setNotificationsOpen(false)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >Cerrar</button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Alertas activas e importantes del sistema.</p>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {alertas.length > 0 ? (
+                      alertas.slice(0, 5).map((alerta) => (
+                        <div key={alerta.id} className="p-4 border-b border-gray-100 hover:bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${alerta.prioridad === 'ALTA' ? 'bg-red-100 text-red-700' : alerta.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                              {alerta.prioridad || 'MEDIA'}
+                            </span>
+                            <span className="text-xs text-gray-500">{new Date(alerta.fecha).toLocaleTimeString('es-CO')}</span>
+                          </div>
+                          <p className="mt-2 text-sm text-gray-900">{alerta.mensaje}</p>
+                          {(alerta.dispositivoNombre || alerta.loteNombre) && (
+                            <p className="mt-1 text-xs text-gray-500">
+                              {alerta.loteNombre ? `Lote: ${alerta.loteNombre}` : `Dispositivo: ${alerta.dispositivoNombre}`}
+                            </p>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-sm text-gray-500">No hay notificaciones activas.</div>
+                    )}
+                  </div>
+                  <div className="p-4 bg-gray-50 text-right">
+                    <button
+                      type="button"
+                      onClick={() => { setNotificationsOpen(false); navigate('/alertas'); }}
+                      className="text-sm font-semibold text-green-700 hover:text-green-900"
+                    >Ver todas las alertas →</button>
+                  </div>
+                </div>
+              )}
               <button
                 onClick={handleLogout}
                 className="text-sm text-gray-600 hover:text-red-600 transition-colors"

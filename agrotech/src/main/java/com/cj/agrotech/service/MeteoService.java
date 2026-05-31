@@ -116,7 +116,8 @@ public class MeteoService {
                 Float precipitacion = safeGet(response.hourly().precipitation(), lastIndex);
                 Float presion = safeGet(response.hourly().surface_pressure(), lastIndex);
                 Float tempSuelo = safeGet(response.hourly().soil_temperature_0_to_7cm(), lastIndex);
-                Float humSuelo = safeGet(response.hourly().soil_moisture_0_to_7cm(), lastIndex);
+                Float humSueloRaw = safeGet(response.hourly().soil_moisture_0_to_7cm(), lastIndex);
+                Float humSuelo = humSueloRaw == null ? null : humSueloRaw * 100;
 
                 Telemetria telemetria = Telemetria.builder()
                         .fincaId(fincaId)

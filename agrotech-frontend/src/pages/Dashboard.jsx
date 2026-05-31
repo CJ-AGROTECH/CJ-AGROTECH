@@ -147,7 +147,12 @@ const Dashboard = () => {
       const data = response.data;
       setFincaClima({
         temperatura: data.tempAire,
-        viento: data.viento,
+        humedadAire: data.humAire,
+        presion: data.presion ?? null,
+        precipitacion: data.precipitacion ?? null,
+        viento: data.viento ?? null,
+        humSuelo: data.humSuelo ?? null,
+        tempSuelo: data.tempSuelo ?? null,
         fecha: new Date(data.timestamp).toLocaleString('es-CO', {
           day: '2-digit',
           month: '2-digit',
@@ -398,7 +403,7 @@ const Dashboard = () => {
             <p className="text-xs uppercase opacity-80">Fuente: clima de la zona</p>
             <h2 className="mt-4 text-4xl font-semibold text-green-900">{formatValue(fincaClima?.temperatura, 1, ' °C')}</h2>
             <p className="mt-1 text-sm text-green-800">{fincaClima?.fecha || 'Último registro reciente'}</p>
-            <div className="mt-6 space-y-3">
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="bg-white rounded-3xl p-4">
                 <p className="text-xs uppercase tracking-wide text-gray-500">Municipio</p>
                 <p className="mt-2 text-lg font-semibold text-gray-900">{selectedFinca.municipio}</p>
@@ -406,6 +411,10 @@ const Dashboard = () => {
               <div className="bg-white rounded-3xl p-4">
                 <p className="text-xs uppercase tracking-wide text-gray-500">Viento</p>
                 <p className="mt-2 text-2xl font-semibold text-gray-900">{formatValue(fincaClima?.viento, 1, ' m/s')}</p>
+              </div>
+              <div className="bg-white rounded-3xl p-4">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Humedad Suelo</p>
+                <p className="mt-2 text-2xl font-semibold text-gray-900">{formatValue(fincaClima?.humSuelo, 1, '%')}</p>
               </div>
             </div>
           </div>
@@ -419,7 +428,7 @@ const Dashboard = () => {
                 <p className="mt-1 text-sm opacity-90">{displayedClima?.fecha || 'Último registro reciente'}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm opacity-90">Humedad</p>
+                <p className="text-sm opacity-90">Humedad Aire</p>
                 <p className="text-4xl font-semibold">{formatValue(displayedClima?.humedad, 0, '%')}</p>
               </div>
             </div>
@@ -443,7 +452,7 @@ const Dashboard = () => {
               </div>
               <div className="bg-white/10 rounded-3xl p-4">
                 <p className="text-xs uppercase opacity-80">Humedad Suelo</p>
-                <p className="mt-2 text-2xl font-semibold">{formatValue(displayedClima?.humSuelo, 0, '%')}</p>
+                <p className="mt-2 text-2xl font-semibold">{formatValue(displayedClima?.humSuelo, 1, '%')}</p>
               </div>
               <div className="bg-white/10 rounded-3xl p-4">
                 <p className="text-xs uppercase opacity-80">Lugar</p>

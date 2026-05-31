@@ -29,6 +29,10 @@ public class HistorialAlerta {
     private Boolean leida;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dispositivo_id", nullable = false)
+    @JoinColumn(name = "dispositivo_id")
     private Dispositivo dispositivo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lote_id")
+    private Lote lote;
 }

@@ -59,7 +59,8 @@ public class OpenMeteoIngestaService {
                     Float pressure = hourly.has("surface_pressure") ? hourly.get("surface_pressure").get(lastIndex).floatValue() : null;
                     Float precipitation = hourly.has("precipitation") ? hourly.get("precipitation").get(lastIndex).floatValue() : null;
                     Float windSpeed = hourly.has("wind_speed_10m") ? hourly.get("wind_speed_10m").get(lastIndex).floatValue() : null;
-                    Float soilMoisture = hourly.has("soil_moisture_0_to_7cm") ? hourly.get("soil_moisture_0_to_7cm").get(lastIndex).floatValue() : null;
+Float soilMoistureRaw = hourly.has("soil_moisture_0_to_7cm") ? hourly.get("soil_moisture_0_to_7cm").get(lastIndex).floatValue() : null;
+                Float soilMoisture = soilMoistureRaw == null ? null : soilMoistureRaw * 100;
                     Float soilTemperature = hourly.has("soil_temperature_0_to_7cm") ? hourly.get("soil_temperature_0_to_7cm").get(lastIndex).floatValue() : null;
 
                     TelemetriaCapturaDTO dto = new TelemetriaCapturaDTO(

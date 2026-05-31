@@ -6,13 +6,16 @@ const Alertas = () => {
   const [historial, setHistorial] = useState([]);
   const [configuraciones, setConfiguraciones] = useState([]);
   const [dispositivos, setDispositivos] = useState([]);
+  const [lotes, setLotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
   const [formData, setFormData] = useState({
-    dispositivoId: '',
+    targetType: 'DISPOSITIVO',
+    targetId: '',
     tipo: 'TEMPERATURA',
+    prioridad: 'MEDIA',
     umbralMin: '',
     umbralMax: '',
     mensaje: ''
@@ -30,18 +33,30 @@ const Alertas = () => {
       const historialResponse = await api.get('/alertas/historial/activas');
       setHistorial(historialResponse.data);
       
-      // Fetch dispositivos for config
+      // Fetch dispositivos and lotes for config
       try {
-        const dispResponse = await api.get('/dispositivos');
+        const [dispResponse, lotesResponse] = await Promise.all([
+          api.get('/dispositivos'),
+          api.get('/lotes')
+        ]);
         setDispositivos(dispResponse.data);
-        
-        // Fetch configuraciones (reglas) for first dispositivo
+        setLotes(lotesResponse.data);
+
+        // Load default configs for the first available target
         if (dispResponse.data.length > 0) {
-          const configResponse = await api.get(`/alertas/configuracion/dispositivo/${dispResponse.data[0].id}`);
+          const targetId = dispResponse.data[0].id;
+          setFormData(prev => ({ ...prev, targetType: 'DISPOSITIVO', targetId }));
+          const configResponse = await api.get(`/alertas/configuracion/dispositivo/${targetId}`);
+          setConfiguraciones(configResponse.data);
+        } else if (lotesResponse.data.length > 0) {
+          const targetId = lotesResponse.data[0].id;
+          setFormData(prev => ({ ...prev, targetType: 'LOTE', targetId }));
+          const configResponse = await api.get(`/alertas/configuracion/lote/${targetId}`);
           setConfiguraciones(configResponse.data);
         }
       } catch (e) {
         setDispositivos([]);
+        setLotes([]);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -51,9 +66,16 @@ const Alertas = () => {
     }
   };
 
-  const fetchConfigs = async (dispositivoId) => {
+  const fetchConfigs = async (targetType, targetId) => {
     try {
-      const response = await api.get(`/alertas/configuracion/dispositivo/${dispositivoId}`);
+      if (!targetId) {
+        setConfiguraciones([]);
+        return;
+      }
+      const path = targetType === 'LOTE'
+        ? `/alertas/configuracion/lote/${targetId}`
+        : `/alertas/configuracion/dispositivo/${targetId}`;
+      const response = await api.get(path);
       setConfiguraciones(response.data);
     } catch (error) {
       console.error('Error fetching configs:', error);
@@ -65,11 +87,17 @@ const Alertas = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleDispositivoChange = (e) => {
-    const dispositivoId = e.target.value;
-    setFormData({ ...formData, dispositivoId: dispositivoId });
-    if (dispositivoId) {
-      fetchConfigs(dispositivoId);
+  const handleTargetTypeChange = (e) => {
+    const targetType = e.target.value;
+    setFormData({ ...formData, targetType, targetId: '' });
+    setConfiguraciones([]);
+  };
+
+  const handleTargetIdChange = (e) => {
+    const targetId = e.target.value;
+    setFormData({ ...formData, targetId });
+    if (targetId) {
+      fetchConfigs(formData.targetType, targetId);
     } else {
       setConfiguraciones([]);
     }
@@ -79,8 +107,10 @@ const Alertas = () => {
     e.preventDefault();
     try {
       const payload = {
-        dispositivoId: formData.dispositivoId,
+        dispositivoId: formData.targetType === 'DISPOSITIVO' ? formData.targetId : null,
+        loteId: formData.targetType === 'LOTE' ? formData.targetId : null,
         tipo: formData.tipo,
+        prioridad: formData.prioridad,
         umbralMin: parseFloat(formData.umbralMin),
         umbralMax: parseFloat(formData.umbralMax),
         mensaje: formData.mensaje
@@ -94,14 +124,16 @@ const Alertas = () => {
       setShowModal(false);
       setEditingConfig(null);
       setFormData({
-        dispositivoId: '',
+        targetType: formData.targetType,
+        targetId: formData.targetId,
         tipo: 'TEMPERATURA',
+        prioridad: 'MEDIA',
         umbralMin: '',
         umbralMax: '',
         mensaje: ''
       });
-      if (formData.dispositivoId) {
-        fetchConfigs(formData.dispositivoId);
+      if (formData.targetId) {
+        fetchConfigs(formData.targetType, formData.targetId);
       }
     } catch (error) {
       console.error('Error saving config:', error);
@@ -112,8 +144,10 @@ const Alertas = () => {
   const handleEdit = (config) => {
     setEditingConfig(config);
     setFormData({
-      dispositivoId: config.dispositivoId,
+      targetType: config.loteId ? 'LOTE' : 'DISPOSITIVO',
+      targetId: config.loteId || config.dispositivoId || '',
       tipo: config.tipo,
+      prioridad: config.prioridad || 'MEDIA',
       umbralMin: config.umbralMin?.toString() || '',
       umbralMax: config.umbralMax?.toString() || '',
       mensaje: config.mensaje || ''
@@ -125,8 +159,8 @@ const Alertas = () => {
     if (window.confirm('¿Estás seguro de que deseas eliminar esta regla?')) {
       try {
         await api.delete(`/alertas/configuracion/${id}`);
-        if (formData.dispositivoId) {
-          fetchConfigs(formData.dispositivoId);
+        if (formData.targetId) {
+          fetchConfigs(formData.targetType, formData.targetId);
         }
       } catch (error) {
         console.error('Error deleting config:', error);
@@ -147,7 +181,8 @@ const Alertas = () => {
   const openNewModal = () => {
     setEditingConfig(null);
     setFormData({
-      dispositivoId: dispositivos.length > 0 ? dispositivos[0].id : '',
+      targetType: formData.targetType || 'DISPOSITIVO',
+      targetId: formData.targetId || (dispositivos.length > 0 ? dispositivos[0].id : ''),
       tipo: 'TEMPERATURA',
       umbralMin: '',
       umbralMax: '',
@@ -238,6 +273,9 @@ const Alertas = () => {
                         {alerta.dispositivoNombre && (
                           <p className="text-sm text-gray-600">Dispositivo: {alerta.dispositivoNombre}</p>
                         )}
+                        {alerta.loteNombre && (
+                          <p className="text-sm text-gray-600">Lote: {alerta.loteNombre}</p>
+                        )}
                       </div>
                     </div>
                     <button
@@ -260,25 +298,38 @@ const Alertas = () => {
 
           {activeTab === 'configuracion' && (
             <div className="space-y-4">
-              {/* Device Selector */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Seleccionar Dispositivo
-                </label>
-                <select
-                  value={formData.dispositivoId}
-                  onChange={handleDispositivoChange}
-                  className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="">Seleccionar dispositivo</option>
-                  {dispositivos.map(d => (
-                    <option key={d.id} value={d.id}>{d.nombre}</option>
-                  ))}
-                </select>
+              <div className="grid gap-4 md:grid-cols-2 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Objetivo</label>
+                  <select
+                    name="targetType"
+                    value={formData.targetType}
+                    onChange={handleTargetTypeChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="DISPOSITIVO">Dispositivo</option>
+                    <option value="LOTE">Lote</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Seleccionar {formData.targetType === 'LOTE' ? 'Lote' : 'Dispositivo'}
+                  </label>
+                  <select
+                    name="targetId"
+                    value={formData.targetId}
+                    onChange={handleTargetIdChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Seleccionar {formData.targetType === 'LOTE' ? 'lote' : 'dispositivo'}</option>
+                    {(formData.targetType === 'LOTE' ? lotes : dispositivos).map(item => (
+                      <option key={item.id} value={item.id}>{item.nombre}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* Add Button */}
-              {formData.dispositivoId && (
+              {formData.targetId && (
                 <button
                   onClick={openNewModal}
                   className="mb-4 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all"
@@ -304,6 +355,16 @@ const Alertas = () => {
                           {config.mensaje && (
                             <p className="text-sm text-gray-500">{config.mensaje}</p>
                           )}
+                          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                            <span className={`px-2 py-1 rounded-full ${config.prioridad === 'ALTA' ? 'bg-red-100 text-red-700' : config.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                              {config.prioridad || 'MEDIA'}
+                            </span>
+                            {(config.loteNombre || config.dispositivoNombre) && (
+                              <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                                {config.loteNombre ? `Lote ${config.loteNombre}` : `Dispositivo ${config.dispositivoNombre}`}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex space-x-2">
@@ -327,10 +388,10 @@ const Alertas = () => {
                 <div className="text-center py-12">
                   <div className="text-6xl mb-4">⚙️</div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    {formData.dispositivoId ? 'No hay reglas configuradas' : 'Selecciona un dispositivo'}
+                    {formData.targetId ? 'No hay reglas configuradas' : `Selecciona un ${formData.targetType === 'LOTE' ? 'lote' : 'dispositivo'}`}
                   </h3>
                   <p className="text-gray-600">
-                    {formData.dispositivoId ? 'Crea tu primera regla de alerta' : 'Para ver las reglas de configuración'}
+                    {formData.targetId ? 'Crea tu primera regla de alerta' : `Para ver las reglas de configuración de ${formData.targetType === 'LOTE' ? 'lote' : 'dispositivo'}`}
                   </p>
                 </div>
               )}
@@ -393,6 +454,21 @@ const Alertas = () => {
                     placeholder="30"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Prioridad
+                </label>
+                <select
+                  name="prioridad"
+                  value={formData.prioridad}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="ALTA">Alta</option>
+                  <option value="MEDIA">Media</option>
+                  <option value="BAJA">Baja</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
