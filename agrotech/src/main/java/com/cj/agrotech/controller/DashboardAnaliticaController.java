@@ -31,6 +31,21 @@ public class DashboardAnaliticaController {
         return analiticaService.calcularEficienciaHidrica(dispositivoId);
     }
 
+    @GetMapping("/historico/lote/{loteId}")
+    public List<Telemetria> obtenerDatosGraficosPorLote(@PathVariable UUID loteId) {
+        return analiticaService.obtenerHistoricoTelemetriaPorLote(loteId);
+    }
+
+    @GetMapping("/eficiencia-hidrica/lote/{loteId}")
+    public Map<String, Object> obtenerEficienciaHidricaPorLote(@PathVariable UUID loteId) {
+        return analiticaService.calcularEficienciaHidricaPorLote(loteId);
+    }
+
+    @GetMapping("/clima-finca/{fincaId}")
+    public ClimaActualDTO obtenerClimaPorFinca(@PathVariable UUID fincaId) {
+        return analiticaService.obtenerUltimoClimaPorFinca(fincaId);
+    }
+
     @GetMapping("/clima-lote/{loteId}")
     public ClimaActualDTO obtenerClimaPorLote(@PathVariable UUID loteId) {
         return analiticaService.obtenerUltimoClimaPorLote(loteId);

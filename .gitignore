@@ -1,3 +1,16 @@
 .aider*
 .env.*
 .env
+.github/
+.idea/
+.vscode/
+node_modules/
+dist/
+coverage/
+*.log
+*.tsbuildinfo
+*.env
+*.env.local
+*.env.development
+*.env.test
+*.env.production

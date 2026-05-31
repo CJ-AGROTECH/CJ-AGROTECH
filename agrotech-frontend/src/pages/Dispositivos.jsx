@@ -262,6 +262,7 @@ const Dispositivos = () => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="00:1B:44:11:3A:B7"
                 />
+                <p className="text-xs text-gray-500 mt-1">La dirección MAC identifica el sensor físico y debe ser única para cada dispositivo. Usa la MAC del módulo de red del sensor o un identificador único equivalente del hardware.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

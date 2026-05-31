@@ -20,6 +20,9 @@ public class Telemetria {
     @Field("lote_id")
     private UUID loteId;
 
+    @Field("finca_id")
+    private UUID fincaId;
+
     private Instant timestamp;
 
     private Lecturas lecturas;

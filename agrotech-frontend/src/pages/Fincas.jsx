@@ -23,6 +23,7 @@ const Fincas = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [climaLoading, setClimaLoading] = useState(false);
   const [notification, setNotification] = useState({ open: false, title: '', message: '', type: '' });
   const [locationLoading, setLocationLoading] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState(null);
@@ -56,7 +57,9 @@ const Fincas = () => {
   };
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value: rawValue } = e.target;
+    const value = (name === 'latitud' || name === 'longitud') ? rawValue.replace(',', '.') : rawValue;
+
     setFormData((current) => {
       const updated = { ...current, [name]: value };
       const lat = Number.parseFloat(updated.latitud);
@@ -228,12 +231,14 @@ const Fincas = () => {
 
   const handleLoadClima = async (id) => {
     try {
-      await api.post(`/fincas/${id}/cargar-clima`);
+      setClimaLoading(true);
       setError('');
-      setMessage('Datos climáticos solicitados correctamente.');
+      setMessage('Solicitando datos climáticos al servidor. Esto puede tardar unos segundos.');
+      await api.post(`/fincas/${id}/cargar-clima`);
+      setMessage('Datos climáticos solicitados correctamente. Revisa el dashboard en unos instantes.');
       showNotification(
         'Clima cargado',
-        'Datos climáticos cargados correctamente. Visualízalos en el dashboard.',
+        'La solicitud de clima fue enviada. El dashboard se actualizará cuando los datos estén disponibles.',
         'success'
       );
     } catch (error) {
@@ -245,10 +250,12 @@ const Fincas = () => {
         'No se pudo cargar los datos climáticos. Verifica la conexión y vuelve a intentarlo.',
         'error'
       );
+    } finally {
+      setClimaLoading(false);
     }
   };
 
-  const handleUseCurrentLocation = async () => {
+  const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
       setError('Geolocalización no está disponible en este navegador.');
       return;
@@ -258,21 +265,16 @@ const Fincas = () => {
     setError('');
     setMessage('Buscando ubicación actual...');
 
-    try {
-      const permissionState = await navigator.permissions?.query?.({ name: 'geolocation' });
-      if (permissionState?.state === 'denied') {
-        setError('Permisos de ubicación bloqueados. Habilítalos en el navegador para usar esta función.');
-        setLocationLoading(false);
-        return;
-      }
-    } catch (permissionError) {
-      // No action needed if permissions API is unsupported.
-    }
-
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        if (!position?.coords) {
+          setError('No se pudo obtener la ubicación actual. Intenta nuevamente.');
+          setLocationLoading(false);
+          return;
+        }
+
         updateCoordinates(position.coords.latitude, position.coords.longitude);
-        setMessage('Ubicación actual cargada. Ajusta el marcador si necesitas más precisión.');
+        setMessage('Ubicación actual cargada correctamente. Ajusta el marcador si necesitas más precisión.');
         setLocationLoading(false);
       },
       (err) => {
@@ -291,7 +293,7 @@ const Fincas = () => {
         setLocationLoading(false);
       },
       {
-        enableHighAccuracy: false,
+        enableHighAccuracy: true,
         timeout: 45000,
         maximumAge: 0
       }
@@ -404,9 +406,10 @@ const Fincas = () => {
                   </button>
                   <button
                     onClick={() => handleLoadClima(finca.id)}
-                    className="flex-1 min-w-[120px] px-3 py-2 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors text-sm font-medium"
+                    disabled={climaLoading}
+                    className={`flex-1 min-w-[120px] px-3 py-2 rounded-lg text-sm font-medium transition-colors ${climaLoading ? 'bg-amber-200 text-amber-900 cursor-not-allowed' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
                   >
-                    🌦️ Cargar Clima
+                    {climaLoading ? 'Solicitando...' : '🌦️ Cargar Clima'}
                   </button>
                   <button
                     onClick={() => handleEdit(finca)}
@@ -554,7 +557,7 @@ const Fincas = () => {
                     </MapContainer>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    Haz clic en el mapa para seleccionar la ubicación, o arrastra el marcador si ya hay coordenadas.
+                    Haz clic en el mapa para seleccionar la ubicación, o arrastra el marcador si ya hay coordenadas. También puedes ingresar latitud y longitud manualmente (usa punto decimal o coma).
                   </p>
                 </div>
               </div>

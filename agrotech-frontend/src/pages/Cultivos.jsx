@@ -57,7 +57,8 @@ const Cultivos = () => {
       fetchCultivos();
     } catch (error) {
       console.error('Error saving cultivo:', error);
-      setError('Error al guardar el cultivo');
+      const message = error.response?.data?.message || error.response?.data?.error || 'Error al guardar el cultivo';
+      setError(message);
     }
   };
 

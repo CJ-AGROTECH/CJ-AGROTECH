@@ -27,9 +27,26 @@ public class AnaliticaDashboardService {
     public Map<String, Object> calcularEficienciaHidrica(UUID dispositivoId) {
         List<Telemetria> lecturas = obtenerHistoricoTelemetria(dispositivoId);
         if (lecturas.isEmpty()) return Map.of("error", "No hay datos");
+        return calcularEficienciaHidrica(lecturas);
+    }
 
-        double precipTotal = lecturas.stream().mapToDouble(t -> t.getLecturas().getClima().getPrecipitacion()).sum();
-        double humSueloPromedio = lecturas.stream().mapToDouble(t -> t.getLecturas().getSuelo().getHumSuelo()).average().orElse(0.0);
+    public List<Telemetria> obtenerHistoricoTelemetriaPorLote(UUID loteId) {
+        return telemetriaRepository.findByLoteIdOrderByTimestampDesc(loteId);
+    }
+
+    public Map<String, Object> calcularEficienciaHidricaPorLote(UUID loteId) {
+        List<Telemetria> lecturas = obtenerHistoricoTelemetriaPorLote(loteId);
+        if (lecturas.isEmpty()) return Map.of("error", "No hay datos");
+        return calcularEficienciaHidrica(lecturas);
+    }
+
+    private Map<String, Object> calcularEficienciaHidrica(List<Telemetria> lecturas) {
+        double precipTotal = lecturas.stream()
+                .mapToDouble(t -> t.getLecturas().getClima().getPrecipitacion() == null ? 0.0 : t.getLecturas().getClima().getPrecipitacion())
+                .sum();
+        double humSueloPromedio = lecturas.stream()
+                .mapToDouble(t -> t.getLecturas().getSuelo().getHumSuelo() == null ? 0.0 : t.getLecturas().getSuelo().getHumSuelo())
+                .average().orElse(0.0);
 
         String estado = "ÓPTIMO";
         if (precipTotal > 15 && humSueloPromedio < 30) estado = "ALERTA: Baja Retención de Suelo";
@@ -66,6 +83,25 @@ public class AnaliticaDashboardService {
         Telemetria ultimo = telemetriaRepository.findTopByLoteIdOrderByTimestampDesc(loteId);
         if (ultimo == null || ultimo.getLecturas() == null) {
             throw new ResourceNotFoundException("No hay datos climáticos para el lote solicitado.");
+        }
+
+        return new ClimaActualDTO(
+                ultimo.getDispositivoId(),
+                ultimo.getTimestamp(),
+                ultimo.getLecturas().getAmbiente() != null ? ultimo.getLecturas().getAmbiente().getTempAire() : null,
+                ultimo.getLecturas().getAmbiente() != null ? ultimo.getLecturas().getAmbiente().getHumAire() : null,
+                ultimo.getLecturas().getAmbiente() != null ? ultimo.getLecturas().getAmbiente().getPresion() : null,
+                ultimo.getLecturas().getClima() != null ? ultimo.getLecturas().getClima().getPrecipitacion() : null,
+                ultimo.getLecturas().getClima() != null ? ultimo.getLecturas().getClima().getViento() : null,
+                ultimo.getLecturas().getSuelo() != null ? ultimo.getLecturas().getSuelo().getHumSuelo() : null,
+                ultimo.getLecturas().getSuelo() != null ? ultimo.getLecturas().getSuelo().getTempSuelo() : null
+        );
+    }
+
+    public ClimaActualDTO obtenerUltimoClimaPorFinca(UUID fincaId) {
+        Telemetria ultimo = telemetriaRepository.findTopByFincaIdAndLoteIdIsNullAndDispositivoIdIsNullOrderByTimestampDesc(fincaId);
+        if (ultimo == null || ultimo.getLecturas() == null) {
+            throw new ResourceNotFoundException("No hay datos climáticos generales para la finca solicitada.");
         }
 
         return new ClimaActualDTO(

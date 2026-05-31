@@ -1,8 +1,11 @@
 package com.cj.agrotech.service;
 
+import com.cj.agrotech.domain.entity.Lote;
 import com.cj.agrotech.dto.TelemetriaCapturaDTO;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.cj.agrotech.repository.LoteRepository;
+import com.cj.agrotech.service.MeteoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,15 +22,20 @@ public class OpenMeteoIngestaService {
     private final RestTemplate restTemplate;
     private final TelemetriaService telemetriaService;
     private final ObjectMapper objectMapper;
+    private final LoteRepository loteRepository;
+    private final MeteoService meteoService;
 
     // Cronjob cada 15 minutos para ingesta automática
     @Scheduled(fixedRate = 900000) // 15 minutos en milisegundos
     public void ingestarDatosClimaticosAutomaticamente() {
-        // Para cada dispositivo activo, ingestar datos
-        // Aquí se asume que se obtiene la lista de dispositivos activos
-        // Por simplicidad, se puede implementar en el futuro con un método que obtenga dispositivos
         log.info("Iniciando ingesta automática de datos climáticos desde Open-Meteo");
-        // Ejemplo: ingestarDatosClimaticos(dispositivoId, loteId, lat, lon);
+        loteRepository.findAll().forEach(lote -> {
+            try {
+                meteoService.sincronizarClimaPorLote(lote.getId());
+            } catch (Exception ex) {
+                log.error("Error al ingestar datos climáticos para lote {}: {}", lote.getId(), ex.getMessage(), ex);
+            }
+        });
     }
 
     public void ingestarDatosClimaticos(UUID dispositivoId, UUID loteId, Double lat, Double lon) {

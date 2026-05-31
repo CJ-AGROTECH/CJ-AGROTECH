@@ -58,6 +58,9 @@ public class LoteService {
                 .orElseThrow(() -> new BadRequestException("Finca no encontrada."));
         CatalogoCultivo cultivo = catalogoCultivoRepository.findById(lote.getCultivo().getId())
                 .orElseThrow(() -> new BadRequestException("Cultivo no encontrado."));
+        if (cultivo.getUsuario() == null || !cultivo.getUsuario().getId().equals(obtenerUsuarioAutenticadoId())) {
+            throw new BadRequestException("No tienes permisos para usar este cultivo.");
+        }
         lote.setFinca(finca);
         lote.setCultivo(cultivo);
         return loteRepository.save(lote);
@@ -76,6 +79,9 @@ public class LoteService {
         if (datos.getCultivo() != null && datos.getCultivo().getId() != null) {
             CatalogoCultivo cultivo = catalogoCultivoRepository.findById(datos.getCultivo().getId())
                     .orElseThrow(() -> new BadRequestException("Cultivo no encontrado."));
+            if (cultivo.getUsuario() == null || !cultivo.getUsuario().getId().equals(obtenerUsuarioAutenticadoId())) {
+                throw new BadRequestException("No tienes permisos para usar este cultivo.");
+            }
             existente.setCultivo(cultivo);
         }
         return loteRepository.save(existente);

@@ -10,6 +10,7 @@ const Lotes = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [climaLoading, setClimaLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingLote, setEditingLote] = useState(null);
   const [selectedFincaId, setSelectedFincaId] = useState(searchParams.get('finca') || '');
@@ -117,13 +118,17 @@ const Lotes = () => {
 
   const handleLoadClima = async (id) => {
     try {
-      await api.post(`/lotes/${id}/cargar-clima`);
+      setClimaLoading(true);
       setError('');
-      setMessage('Datos climáticos solicitados correctamente.');
+      setMessage('Solicitando datos climáticos al servidor. Esto puede tardar unos segundos.');
+      await api.post(`/lotes/${id}/cargar-clima`);
+      setMessage('Datos climáticos solicitados correctamente. Revisa el dashboard en unos instantes.');
     } catch (error) {
       console.error('Error cargando clima:', error);
       setError('Error al cargar los datos climáticos');
       setMessage('');
+    } finally {
+      setClimaLoading(false);
     }
   };
 
@@ -215,9 +220,10 @@ const Lotes = () => {
                   </button>
                   <button
                     onClick={() => handleLoadClima(lote.id)}
-                    className="flex-1 px-3 py-2 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors text-sm font-medium"
+                    disabled={climaLoading}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${climaLoading ? 'bg-amber-200 text-amber-900 cursor-not-allowed' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}
                   >
-                    🌦️ Cargar Clima
+                    {climaLoading ? 'Solicitando...' : '🌦️ Cargar Clima'}
                   </button>
                   <button
                     onClick={() => handleDelete(lote.id)}

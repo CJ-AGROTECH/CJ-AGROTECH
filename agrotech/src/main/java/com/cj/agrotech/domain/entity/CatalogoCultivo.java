@@ -1,5 +1,6 @@
 package com.cj.agrotech.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,4 +24,9 @@ public class CatalogoCultivo {
     private Double tempOptimaMax;
     private Double humedadOptimaMin;
     private Double humedadOptimaMax;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id")
+    @JsonIgnore
+    private Usuario usuario;
 }

@@ -11,5 +11,6 @@ public interface LoteRepository extends JpaRepository<Lote, UUID> {
 
     List<Lote> findByFincaId(UUID fincaId);
     List<Lote> findByFincaUsuarioId(UUID usuarioId);
+    List<Lote> findByCultivoId(UUID cultivoId);
     java.util.Optional<Lote> findByNombre(String nombre);
 }

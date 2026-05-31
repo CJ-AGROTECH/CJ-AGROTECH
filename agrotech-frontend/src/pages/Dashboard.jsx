@@ -16,6 +16,7 @@ const Dashboard = () => {
   const [historico, setHistorico] = useState([]);
   const [currentClima, setCurrentClima] = useState(null);
   const [loteClima, setLoteClima] = useState(null);
+  const [fincaClima, setFincaClima] = useState(null);
   const [eficiencia, setEficiencia] = useState(null);
   const [alertasActivas, setAlertasActivas] = useState([]);
   const [stats, setStats] = useState({
@@ -27,12 +28,33 @@ const Dashboard = () => {
 
   const selectedFinca = fincas.find(f => f.id === selectedFincaId);
   const selectedLote = lotes.find(l => l.id === selectedLoteId);
-  const displayedClima = currentClima || loteClima;
-  const climaSource = currentClima ? 'dispositivo' : loteClima ? 'lote' : '';
+  const displayedClima = loteClima || currentClima;
+  const climaSource = loteClima ? 'lote' : currentClima ? 'dispositivo' : '';
+
+  const formatValue = (value, decimals = 1, unit = '') => {
+    if (value == null) return '--';
+    return `${value.toFixed(decimals)}${unit}`;
+  };
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (selectedFincaId) {
+        fetchFincaClima(selectedFincaId);
+      }
+      if (selectedLoteId) {
+        fetchLoteData(selectedLoteId);
+      }
+      if (selectedDispositivo) {
+        fetchDispositivoData(selectedDispositivo);
+      }
+    }, 900000); // 15 minutos
+
+    return () => clearInterval(interval);
+  }, [selectedFincaId, selectedLoteId, selectedDispositivo]);
 
   const fetchDashboardData = async () => {
     try {
@@ -64,7 +86,8 @@ const Dashboard = () => {
       setDispositivos(dispositivosData);
 
       if (fincasData[0]?.id) {
-        await fetchLotesForFinca(fincasData[0].id, dispositivosData);
+        await fetchFincaClima(fincasData[0].id);
+        await fetchLotesForFinca(fincasData[0].id);
       } else if (dispositivosData.length > 0) {
         setSelectedDispositivo(dispositivosData[0].id);
         await fetchDispositivoData(dispositivosData[0].id);
@@ -87,7 +110,7 @@ const Dashboard = () => {
 
       if (loteId) {
         await fetchDevicesForLote(loteId, currentDevices);
-        fetchLoteClima(loteId);
+        await fetchLoteData(loteId);
       } else {
         setDispositivos([]);
         setSelectedDispositivo(null);
@@ -111,15 +134,71 @@ const Dashboard = () => {
       setSelectedDispositivo(dispositivoId);
       if (dispositivoId) {
         await fetchDispositivoData(dispositivoId);
-      } else {
-        setHistorico([]);
-        setEficiencia(null);
-        setCurrentClima(null);
       }
     } catch (error) {
       console.error('Error fetching dispositivos para lote:', error);
       setError('Error al cargar los dispositivos del lote');
     }
+  };
+
+  const fetchFincaClima = async (fincaId) => {
+    try {
+      const response = await api.get(`/dashboard/clima-finca/${fincaId}`);
+      const data = response.data;
+      setFincaClima({
+        temperatura: data.tempAire,
+        viento: data.viento,
+        fecha: new Date(data.timestamp).toLocaleString('es-CO', {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      });
+    } catch (error) {
+      console.error('Error fetching finca climate:', error);
+      setFincaClima(null);
+    }
+  };
+
+  const fetchLoteHistorico = async (loteId) => {
+    try {
+      const historicoResponse = await api.get(`/dashboard/historico/lote/${loteId}`);
+      const formattedHistorico = historicoResponse.data.map(d => ({
+        timestamp: new Date(d.timestamp).toLocaleString('es-CO', {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        tempAire: d.lecturas?.ambiente?.tempAire ?? null,
+        humAire: d.lecturas?.ambiente?.humAire ?? null,
+        presion: d.lecturas?.ambiente?.presion ?? null,
+        lux: d.lecturas?.ambiente?.lux ?? null,
+        tempSuelo: d.lecturas?.suelo?.tempSuelo ?? null,
+        humSuelo: d.lecturas?.suelo?.humSuelo ?? null,
+        precipitacion: d.lecturas?.clima?.precipitacion ?? null,
+        viento: d.lecturas?.clima?.viento ?? null
+      }));
+      setHistorico(formattedHistorico);
+    } catch (error) {
+      console.error('Error fetching lote historico:', error);
+      setHistorico([]);
+    }
+  };
+
+  const fetchLoteEficiencia = async (loteId) => {
+    try {
+      const efResponse = await api.get(`/dashboard/eficiencia-hidrica/lote/${loteId}`);
+      setEficiencia(efResponse.data);
+    } catch (error) {
+      console.error('Error fetching lote eficiencia:', error);
+      setEficiencia(null);
+    }
+  };
+
+  const fetchLoteData = async (loteId) => {
+    await Promise.all([fetchLoteClima(loteId), fetchLoteHistorico(loteId), fetchLoteEficiencia(loteId)]);
   };
 
   const handleFincaChange = async (e) => {
@@ -129,7 +208,10 @@ const Dashboard = () => {
     setSelectedDispositivo(null);
     setHistorico([]);
     setEficiencia(null);
+    setLoteClima(null);
+    setFincaClima(null);
     if (fincaId) {
+      await fetchFincaClima(fincaId);
       await fetchLotesForFinca(fincaId);
     }
   };
@@ -144,7 +226,7 @@ const Dashboard = () => {
     setLoteClima(null);
     if (loteId) {
       await fetchDevicesForLote(loteId);
-      fetchLoteClima(loteId);
+      await fetchLoteData(loteId);
     }
   };
 
@@ -159,13 +241,14 @@ const Dashboard = () => {
           hour: '2-digit',
           minute: '2-digit'
         }),
-        tempAire: d.lecturas?.ambiente?.tempAire || 0,
-        humAire: d.lecturas?.ambiente?.humAire || 0,
-        tempSuelo: d.lecturas?.suelo?.tempSuelo || 0,
-        humSuelo: d.lecturas?.suelo?.humSuelo || 0,
-        precipitacion: d.lecturas?.clima?.precipitacion || 0,
-        viento: d.lecturas?.clima?.viento || 0,
-        luminosidad: d.lecturas?.ambiente?.lux || 0
+        tempAire: d.lecturas?.ambiente?.tempAire ?? null,
+        humAire: d.lecturas?.ambiente?.humAire ?? null,
+        presion: d.lecturas?.ambiente?.presion ?? null,
+        lux: d.lecturas?.ambiente?.lux ?? null,
+        tempSuelo: d.lecturas?.suelo?.tempSuelo ?? null,
+        humSuelo: d.lecturas?.suelo?.humSuelo ?? null,
+        precipitacion: d.lecturas?.clima?.precipitacion ?? null,
+        viento: d.lecturas?.clima?.viento ?? null
       }));
       setHistorico(formattedHistorico);
 
@@ -178,6 +261,10 @@ const Dashboard = () => {
         setCurrentClima({
           temperatura: latest.tempAire,
           humedad: latest.humAire,
+          presion: latest.presion,
+          lux: latest.lux,
+          tempSuelo: latest.tempSuelo,
+          humSuelo: latest.humSuelo,
           fecha: latest.timestamp,
           ubicacion: selectedLote ? `${selectedLote.nombre} • ${selectedFinca?.municipio || ''}` : '',
           precipitacion: latest.precipitacion,
@@ -199,6 +286,10 @@ const Dashboard = () => {
       setLoteClima({
         temperatura: data.tempAire,
         humedad: data.humAire,
+        presion: data.presion ?? null,
+        lux: data.lux ?? null,
+        tempSuelo: data.tempSuelo ?? null,
+        humSuelo: data.humSuelo ?? null,
         fecha: new Date(data.timestamp).toLocaleString('es-CO', {
           day: '2-digit',
           month: '2-digit',
@@ -206,8 +297,8 @@ const Dashboard = () => {
           minute: '2-digit'
         }),
         ubicacion: selectedLote ? `${selectedLote.nombre} • ${selectedFinca?.municipio || ''}` : '',
-        precipitacion: data.precipitacion || 0,
-        viento: data.viento || 0
+        precipitacion: data.precipitacion ?? null,
+        viento: data.viento ?? null
       });
     } catch (error) {
       console.error('Error fetching lote climate:', error);
@@ -292,7 +383,7 @@ const Dashboard = () => {
       )}
 
       {selectedFinca && (
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
           <div className="bg-white rounded-3xl shadow-lg p-6 border border-gray-100">
             <p className="text-sm text-gray-500 uppercase tracking-wide">Ubicación del lote</p>
             <h2 className="mt-2 text-2xl font-semibold text-gray-900">{selectedLote ? selectedLote.nombre : 'Sin lote seleccionado'}</h2>
@@ -302,28 +393,57 @@ const Dashboard = () => {
             <p className="text-gray-500 text-sm mt-2">Esta es la ubicación exacta asociada al lote seleccionado.</p>
           </div>
 
+          <div className="bg-green-50 rounded-3xl shadow-lg p-6 border border-green-100">
+            <p className="text-sm uppercase tracking-wide text-green-700">Clima general de finca</p>
+            <p className="text-xs uppercase opacity-80">Fuente: clima de la zona</p>
+            <h2 className="mt-4 text-4xl font-semibold text-green-900">{formatValue(fincaClima?.temperatura, 1, ' °C')}</h2>
+            <p className="mt-1 text-sm text-green-800">{fincaClima?.fecha || 'Último registro reciente'}</p>
+            <div className="mt-6 space-y-3">
+              <div className="bg-white rounded-3xl p-4">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Municipio</p>
+                <p className="mt-2 text-lg font-semibold text-gray-900">{selectedFinca.municipio}</p>
+              </div>
+              <div className="bg-white rounded-3xl p-4">
+                <p className="text-xs uppercase tracking-wide text-gray-500">Viento</p>
+                <p className="mt-2 text-2xl font-semibold text-gray-900">{formatValue(fincaClima?.viento, 1, ' m/s')}</p>
+              </div>
+            </div>
+          </div>
+
           <div className="xl:col-span-2 bg-gradient-to-r from-sky-500 to-cyan-600 rounded-3xl shadow-lg p-6 text-white">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div>
                 <p className="text-sm uppercase tracking-wide opacity-80">Clima actual</p>
                 <p className="text-xs uppercase opacity-80">{climaSource === 'lote' ? 'Fuente: clima de lote' : 'Fuente: dispositivo'}</p>
-                <h2 className="mt-2 text-4xl font-semibold">{displayedClima ? `${displayedClima.temperatura?.toFixed(1)} °C` : 'No disponible'}</h2>
+                <h2 className="mt-2 text-4xl font-semibold">{formatValue(displayedClima?.temperatura, 1, ' °C')}</h2>
                 <p className="mt-1 text-sm opacity-90">{displayedClima?.fecha || 'Último registro reciente'}</p>
               </div>
               <div className="text-right">
                 <p className="text-sm opacity-90">Humedad</p>
-                <p className="text-4xl font-semibold">{displayedClima ? `${displayedClima.humedad?.toFixed(0)}%` : '--'}</p>
+                <p className="text-4xl font-semibold">{formatValue(displayedClima?.humedad, 0, '%')}</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
               <div className="bg-white/10 rounded-3xl p-4">
                 <p className="text-xs uppercase opacity-80">Precipitación</p>
-                <p className="mt-2 text-2xl font-semibold">{displayedClima ? `${displayedClima.precipitacion?.toFixed(1)} mm` : '--'}</p>
+                <p className="mt-2 text-2xl font-semibold">{formatValue(displayedClima?.precipitacion, 1, ' mm')}</p>
               </div>
               <div className="bg-white/10 rounded-3xl p-4">
                 <p className="text-xs uppercase opacity-80">Viento</p>
-                <p className="mt-2 text-2xl font-semibold">{displayedClima ? `${displayedClima.viento?.toFixed(1)} m/s` : '--'}</p>
+                <p className="mt-2 text-2xl font-semibold">{formatValue(displayedClima?.viento, 1, ' m/s')}</p>
+              </div>
+              <div className="bg-white/10 rounded-3xl p-4">
+                <p className="text-xs uppercase opacity-80">Presión</p>
+                <p className="mt-2 text-2xl font-semibold">{formatValue(displayedClima?.presion, 1, ' hPa')}</p>
+              </div>
+              <div className="bg-white/10 rounded-3xl p-4">
+                <p className="text-xs uppercase opacity-80">Temp. Suelo</p>
+                <p className="mt-2 text-2xl font-semibold">{formatValue(displayedClima?.tempSuelo, 1, ' °C')}</p>
+              </div>
+              <div className="bg-white/10 rounded-3xl p-4">
+                <p className="text-xs uppercase opacity-80">Humedad Suelo</p>
+                <p className="mt-2 text-2xl font-semibold">{formatValue(displayedClima?.humSuelo, 0, '%')}</p>
               </div>
               <div className="bg-white/10 rounded-3xl p-4">
                 <p className="text-xs uppercase opacity-80">Lugar</p>
