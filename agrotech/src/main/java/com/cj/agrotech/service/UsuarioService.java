@@ -57,6 +57,16 @@ public class UsuarioService {
     }
 
     @Transactional
+    public void cambiarPasswordPorEmail(String email, String currentPassword, String newPassword) {
+        Usuario existente = buscarPorEmail(email);
+        if (!passwordEncoder.matches(currentPassword, existente.getPassword())) {
+            throw new BadRequestException("La contraseña actual no es correcta.");
+        }
+        existente.setPassword(passwordEncoder.encode(newPassword));
+        usuarioRepository.save(existente);
+    }
+
+    @Transactional
     public void eliminar(UUID id) {
         if (!usuarioRepository.existsById(id)) {
             throw new ResourceNotFoundException("Usuario no encontrado.");

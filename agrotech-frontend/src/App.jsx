@@ -9,6 +9,7 @@ import Lotes from './pages/Lotes';
 import Dispositivos from './pages/Dispositivos';
 import Cultivos from './pages/Cultivos';
 import Alertas from './pages/Alertas';
+import Account from './pages/Account';
 import Layout from './components/Layout';
 
 // Protected Route Component
@@ -135,6 +136,16 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Alertas />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/account"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Account />
               </Layout>
             </ProtectedRoute>
           }

@@ -3,6 +3,7 @@ package com.cj.agrotech.controller;
 import com.cj.agrotech.config.JwtUtils;
 import com.cj.agrotech.domain.entity.Usuario;
 import com.cj.agrotech.dto.*;
+import com.cj.agrotech.dto.ChangePasswordRequestDTO;
 import com.cj.agrotech.service.UsuarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -59,5 +60,14 @@ public class AuthController {
             usuario.getEmail(),
             usuario.getRol()
         ));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequestDTO request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        usuarioService.cambiarPasswordPorEmail(email, request.currentPassword(), request.newPassword());
+
+        return ResponseEntity.ok(new MessageResponseDTO("Contraseña actualizada correctamente."));
     }
 }

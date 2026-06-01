@@ -54,6 +54,7 @@ const Layout = ({ children }) => {
     { path: '/lotes', label: 'Lotes', icon: '🗺️' },
     { path: '/dispositivos', label: 'Dispositivos', icon: '📡' },
     { path: '/cultivos', label: 'Cultivos', icon: '🌱' },
+    { path: '/account', label: 'Mi Cuenta', icon: '👤' },
     { path: '/alertas', label: 'Alertas', icon: '🔔', badge: alertasCount },
   ];
 
@@ -111,34 +112,38 @@ const Layout = ({ children }) => {
                 )}
               </button>
               {notificationsOpen && (
-                <div className="absolute right-0 top-14 z-50 w-96 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+                <div className="absolute right-0 top-14 z-50 w-full max-w-sm sm:max-w-md bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
                   <div className="p-4 border-b border-gray-100 bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-gray-900">Notificaciones</h3>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900">Notificaciones</h3>
+                        <p className="text-xs text-gray-500 mt-1">Alertas activas e importantes del sistema.</p>
+                      </div>
                       <button
                         type="button"
                         onClick={() => setNotificationsOpen(false)}
                         className="text-gray-500 hover:text-gray-700"
                       >Cerrar</button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">Alertas activas e importantes del sistema.</p>
                   </div>
                   <div className="max-h-80 overflow-y-auto">
                     {alertas.length > 0 ? (
                       alertas.slice(0, 5).map((alerta) => (
                         <div key={alerta.id} className="p-4 border-b border-gray-100 hover:bg-gray-50">
-                          <div className="flex items-center justify-between">
-                            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${alerta.prioridad === 'ALTA' ? 'bg-red-100 text-red-700' : alerta.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
-                              {alerta.prioridad || 'MEDIA'}
-                            </span>
-                            <span className="text-xs text-gray-500">{new Date(alerta.fecha).toLocaleTimeString('es-CO')}</span>
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                            <div>
+                              <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full ${alerta.prioridad === 'ALTA' ? 'bg-red-100 text-red-700' : alerta.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                                {alerta.prioridad || 'MEDIA'}
+                              </span>
+                              <p className="mt-3 text-sm text-gray-900">{alerta.mensaje}</p>
+                              {(alerta.dispositivoNombre || alerta.loteNombre) && (
+                                <p className="mt-2 text-xs text-gray-500">
+                                  {alerta.loteNombre ? `Lote: ${alerta.loteNombre}` : `Dispositivo: ${alerta.dispositivoNombre}`}
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-500 whitespace-nowrap">{new Date(alerta.fecha).toLocaleTimeString('es-CO')}</span>
                           </div>
-                          <p className="mt-2 text-sm text-gray-900">{alerta.mensaje}</p>
-                          {(alerta.dispositivoNombre || alerta.loteNombre) && (
-                            <p className="mt-1 text-xs text-gray-500">
-                              {alerta.loteNombre ? `Lote: ${alerta.loteNombre}` : `Dispositivo: ${alerta.dispositivoNombre}`}
-                            </p>
-                          )}
                         </div>
                       ))
                     ) : (

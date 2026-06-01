@@ -211,16 +211,73 @@ const Alertas = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gestión de Alertas</h1>
-          <p className="text-gray-600 mt-1">Configura y visualiza las alertas del sistema</p>
+      <div className="space-y-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Gestión de Alertas</h1>
+            <p className="text-gray-600 mt-1">Configura y visualiza las alertas del sistema</p>
+          </div>
+          <button
+            onClick={openNewModal}
+            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-green-500 to-emerald-600 text-white px-5 py-3 text-sm font-semibold shadow-lg hover:from-green-600 hover:to-emerald-700 transition-all"
+          >
+            + Nueva Regla
+          </button>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-3xl bg-white border border-gray-200 p-4 shadow-sm">
+            <p className="text-sm font-medium text-gray-500">Alertas activas</p>
+            <p className="mt-3 text-3xl font-bold text-gray-900">{historial.length}</p>
+            <p className="mt-2 text-sm text-gray-500">Elementos recientes</p>
+          </div>
+          <div className="rounded-3xl bg-white border border-gray-200 p-4 shadow-sm">
+            <p className="text-sm font-medium text-gray-500">Reglas configuradas</p>
+            <p className="mt-3 text-3xl font-bold text-gray-900">{configuraciones.length}</p>
+            <p className="mt-2 text-sm text-gray-500">Filtra por lote o dispositivo</p>
+          </div>
+          <div className="rounded-3xl bg-white border border-gray-200 p-4 shadow-sm">
+            <p className="text-sm font-medium text-gray-500">Objetivo actual</p>
+            <p className="mt-3 text-lg font-semibold text-gray-900">
+              {formData.targetId ? (formData.targetType === 'LOTE' ? 'Lote seleccionado' : 'Dispositivo seleccionado') : 'Sin selección'}
+            </p>
+            <p className="mt-2 text-sm text-gray-500">Cambia el objetivo para administrar sus reglas</p>
+          </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="flex border-b border-gray-200">
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="flex flex-col sm:flex-row">
+          <button
+            onClick={() => setActiveTab('historial')}
+            className={`flex-1 px-5 py-4 text-center font-medium transition-colors ${
+              activeTab === 'historial'
+                ? 'text-green-600 bg-green-50'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            📋 Historial de Alertas
+            {historial.length > 0 && (
+              <span className="ml-2 inline-flex items-center bg-red-500 text-white text-[10px] px-2 py-1 rounded-full">
+                {historial.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('configuracion')}
+            className={`flex-1 px-5 py-4 text-center font-medium transition-colors ${
+              activeTab === 'configuracion'
+                ? 'text-green-600 bg-green-50'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            ⚙️ Configuración de Reglas
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        <div className="p-6">
           <button
             onClick={() => setActiveTab('historial')}
             className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
@@ -260,27 +317,25 @@ const Alertas = () => {
             <div className="space-y-4">
               {historial.length > 0 ? (
                 historial.map(alerta => (
-                  <div key={alerta.id} className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <div key={alerta.id} className="bg-red-50 border border-red-200 rounded-3xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 bg-red-100 rounded-3xl flex items-center justify-center">
                         <span className="text-2xl">⚠️</span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{alerta.mensaje}</p>
-                        <p className="text-sm text-gray-500">
-                          {new Date(alerta.fecha).toLocaleString('es-CO')}
-                        </p>
+                        <p className="font-semibold text-gray-900">{alerta.mensaje}</p>
+                        <p className="mt-1 text-sm text-gray-500">{new Date(alerta.fecha).toLocaleString('es-CO')}</p>
                         {alerta.dispositivoNombre && (
-                          <p className="text-sm text-gray-600">Dispositivo: {alerta.dispositivoNombre}</p>
+                          <p className="mt-2 text-sm text-gray-600">Dispositivo: {alerta.dispositivoNombre}</p>
                         )}
                         {alerta.loteNombre && (
-                          <p className="text-sm text-gray-600">Lote: {alerta.loteNombre}</p>
+                          <p className="mt-1 text-sm text-gray-600">Lote: {alerta.loteNombre}</p>
                         )}
                       </div>
                     </div>
                     <button
                       onClick={() => marcarComoVista(alerta.id)}
-                      className="px-4 py-2 bg-white border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                      className="self-start sm:self-center px-4 py-2 bg-white border border-red-300 text-red-600 rounded-full hover:bg-red-50 transition-colors"
                     >
                       Marcar como vista
                     </button>
@@ -298,14 +353,14 @@ const Alertas = () => {
 
           {activeTab === 'configuracion' && (
             <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2 mb-4">
+              <div className="grid gap-4 sm:grid-cols-2 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Objetivo</label>
                   <select
                     name="targetType"
                     value={formData.targetType}
                     onChange={handleTargetTypeChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-3xl bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   >
                     <option value="DISPOSITIVO">Dispositivo</option>
                     <option value="LOTE">Lote</option>
@@ -319,7 +374,7 @@ const Alertas = () => {
                     name="targetId"
                     value={formData.targetId}
                     onChange={handleTargetIdChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-3xl bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   >
                     <option value="">Seleccionar {formData.targetType === 'LOTE' ? 'lote' : 'dispositivo'}</option>
                     {(formData.targetType === 'LOTE' ? lotes : dispositivos).map(item => (
@@ -340,45 +395,43 @@ const Alertas = () => {
 
               {/* Configurations List */}
               {configuraciones.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {configuraciones.map(config => (
-                    <div key={config.id} className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <div key={config.id} className="bg-white border border-gray-200 rounded-3xl p-4 grid gap-4 sm:grid-cols-[1fr_auto] items-start">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-blue-100 rounded-3xl flex items-center justify-center">
                           <span className="text-2xl">{getTipoLabel(config.tipo).split(' ')[0]}</span>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">{getTipoLabel(config.tipo)}</p>
-                          <p className="text-sm text-gray-600">
-                            Umbral: {config.umbralMin} - {config.umbralMax}
-                          </p>
+                          <p className="font-semibold text-gray-900">{getTipoLabel(config.tipo)}</p>
+                          <p className="mt-1 text-sm text-gray-600">Umbral: {config.umbralMin} - {config.umbralMax}</p>
                           {config.mensaje && (
-                            <p className="text-sm text-gray-500">{config.mensaje}</p>
+                            <p className="mt-2 text-sm text-gray-500">{config.mensaje}</p>
                           )}
-                          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                            <span className={`px-2 py-1 rounded-full ${config.prioridad === 'ALTA' ? 'bg-red-100 text-red-700' : config.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full ${config.prioridad === 'ALTA' ? 'bg-red-100 text-red-700' : config.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
                               {config.prioridad || 'MEDIA'}
                             </span>
                             {(config.loteNombre || config.dispositivoNombre) && (
-                              <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
                                 {config.loteNombre ? `Lote ${config.loteNombre}` : `Dispositivo ${config.dispositivoNombre}`}
                               </span>
                             )}
                           </div>
                         </div>
                       </div>
-                      <div className="flex space-x-2">
+                      <div className="flex flex-wrap gap-2 justify-end">
                         <button
                           onClick={() => handleEdit(config)}
-                          className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                          className="px-4 py-2 bg-blue-50 text-blue-700 rounded-full hover:bg-blue-100 transition-colors"
                         >
-                          ✏️
+                          ✏️ Editar
                         </button>
                         <button
                           onClick={() => handleDelete(config.id)}
-                          className="px-3 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors"
+                          className="px-4 py-2 bg-red-50 text-red-700 rounded-full hover:bg-red-100 transition-colors"
                         >
-                          🗑️
+                          🗑️ Eliminar
                         </button>
                       </div>
                     </div>
@@ -423,7 +476,7 @@ const Alertas = () => {
                   <option value="LUMINOSIDAD">☀️ Luminosidad</option>
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Umbral Mínimo
@@ -435,7 +488,7 @@ const Alertas = () => {
                     onChange={handleInputChange}
                     required
                     step="0.1"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-3xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="15"
                   />
                 </div>
@@ -450,7 +503,7 @@ const Alertas = () => {
                     onChange={handleInputChange}
                     required
                     step="0.1"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-3xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="30"
                   />
                 </div>

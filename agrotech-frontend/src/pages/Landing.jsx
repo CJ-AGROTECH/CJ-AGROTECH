@@ -4,25 +4,25 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-50">
+      <header className="bg-white/90 backdrop-blur-sm shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 py-4">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">A</span>
               </div>
               <span className="text-2xl font-bold text-gray-800">AGROTECH</span>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex flex-col sm:flex-row sm:space-x-4 w-full sm:w-auto">
               <button
                 onClick={() => navigate('/login')}
-                className="text-gray-600 hover:text-gray-800 px-4 py-2 rounded-lg transition-colors"
+                className="text-gray-600 hover:text-gray-800 px-4 py-2 rounded-lg transition-colors w-full sm:w-auto"
               >
                 Iniciar Sesión
               </button>
               <button
                 onClick={() => navigate('/register')}
-                className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-2 rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-2 rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg w-full sm:w-auto"
               >
                 Registrarse
               </button>
@@ -33,15 +33,15 @@ const Landing = () => {
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="grid gap-12 items-center lg:grid-cols-2">
             <div className="space-y-8">
               <div>
-                <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
                   Revoluciona tu
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-600"> agricultura </span>
                   con tecnología
                 </h1>
-                <p className="text-xl text-gray-600 mt-6 leading-relaxed">
+                <p className="text-base sm:text-xl text-gray-600 mt-6 leading-relaxed max-w-2xl">
                   Monitorea en tiempo real las condiciones de tu cultivo, recibe alertas inteligentes
                   y optimiza tus recursos hídricos para una agricultura sostenible en el Oriente Antioqueño.
                 </p>
@@ -49,49 +49,49 @@ const Landing = () => {
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
                   onClick={() => navigate('/register')}
-                  className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1 w-full sm:w-auto"
                 >
                   Comenzar Ahora
                 </button>
                 <button
                   onClick={() => document.getElementById('features').scrollIntoView({ behavior: 'smooth' })}
-                  className="border-2 border-gray-300 text-gray-700 px-8 py-4 rounded-xl text-lg font-semibold hover:border-green-500 hover:text-green-600 transition-all duration-200"
+                  className="border-2 border-gray-300 text-gray-700 px-8 py-4 rounded-xl text-lg font-semibold hover:border-green-500 hover:text-green-600 transition-all duration-200 w-full sm:w-auto"
                 >
                   Conocer Más
                 </button>
               </div>
-              <div className="flex items-center space-x-8 text-sm text-gray-500">
-                <div className="flex items-center space-x-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-gray-500">
+                <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <span>Monitoreo 24/7</span>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
                   <span>Alertas Inteligentes</span>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
                   <span>Ahorro de Agua</span>
                 </div>
               </div>
             </div>
             <div className="relative">
-              <div className="bg-white rounded-2xl shadow-2xl p-8 transform rotate-3 hover:rotate-0 transition-transform duration-300">
+              <div className="bg-white rounded-[2rem] shadow-2xl p-6 lg:p-8 transform lg:-rotate-3 hover:rotate-0 transition-transform duration-300">
                 <div className="bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl p-6">
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                       <span className="text-sm font-medium text-gray-600">Temperatura</span>
                       <span className="text-2xl font-bold text-green-600">24°C</span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                       <span className="text-sm font-medium text-gray-600">Humedad Suelo</span>
                       <span className="text-2xl font-bold text-emerald-600">68%</span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                       <span className="text-sm font-medium text-gray-600">Luminosidad</span>
                       <span className="text-2xl font-bold text-teal-600">85%</span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                       <span className="text-sm font-medium text-gray-600">Estado</span>
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                         Óptimo
