@@ -24,6 +24,7 @@
 - [Stack Tecnológico](#stack-tecnológico)
 - [Requisitos del Sistema](#requisitos-del-sistema)
 - [Instalación](#instalación)
+- [Despliegue](#-despliegue-deploy-script)
 - [Configuración](#configuración)
 - [Guía de Uso](#guía-de-uso)
 - [API REST](#api-rest)
@@ -213,6 +214,211 @@ docker compose ps
 # Acceder a la aplicación
 # Frontend: http://localhost:3000
 # Backend: http://localhost:8080/swagger-ui.html
+```
+
+---
+
+## 📦 Despliegue (Deploy Script)
+
+Se proporciona un script profesional de despliegue que automatiza todo el proceso, incluyendo validaciones de prerequisitos, compilación de imágenes Docker y health checks.
+
+### Uso rápido
+
+```bash
+# Modo desarrollo (rápido, con hot-reload)
+bash scripts/deploy.sh dev
+
+# Modo producción (optimizado, sin cache)
+bash scripts/deploy.sh prod
+
+# Limpiar volúmenes y redeploy
+bash scripts/deploy.sh dev --clean
+
+# Mostrar ayuda
+bash scripts/deploy.sh --help
+```
+
+### ¿Qué hace el script?
+
+#### 🔍 Validaciones
+- ✓ Verifica que Docker y Docker Compose están instalados
+- ✓ Comprueba espacio en disco (mínimo 2GB)
+- ✓ Valida disponibilidad de puertos (8080, 3000, 5432, 27017)
+- ✓ Verifica que `.env` existe y tiene variables requeridas
+
+#### 🏗️ Construcción
+- ✓ Detiene servicios existentes correctamente
+- ✓ Compila imágenes Docker (con o sin cache según ambiente)
+- ✓ Inicia todos los contenedores (PostgreSQL, MongoDB, Backend, Frontend)
+
+#### ✅ Health checks
+- ✓ Espera a que PostgreSQL esté listo
+- ✓ Espera a que MongoDB esté listo
+- ✓ Verifica Backend API (Swagger UI)
+- ✓ Verifica Frontend (React)
+- ✓ Genera un resumen visual con todos los servicios
+
+### Opciones disponibles
+
+| Comando | Descripción |
+|---------|-------------|
+| `bash scripts/deploy.sh dev` | Despliegue en modo **desarrollo** |
+| `bash scripts/deploy.sh prod` | Despliegue en modo **producción** (más lento pero optimizado) |
+| `bash scripts/deploy.sh dev --clean` | **Limpia volúmenes, bases de datos y logs**, luego redeploy |
+| `bash scripts/deploy.sh --help` | Muestra ayuda interactiva |
+
+### Ejemplos prácticos
+
+#### 🚀 Primer despliegue en desarrollo
+```bash
+cd /home/johnki/proyectos/CJ-AGROTECH
+bash scripts/deploy.sh dev
+```
+
+**Output esperado:**
+```
+ℹ Validando prerequisitos
+✓ Docker 24.0 instalado
+✓ Docker Compose 2.25 instalado
+✓ Espacio suficiente disponible: 150GB
+ℹ Cargando variables de entorno...
+✓ Variables de entorno cargadas
+ℹ Compilando imágenes Docker...
+✓ Imágenes compiladas exitosamente
+ℹ Iniciando servicios...
+✓ PostgreSQL está listo en puerto 5432
+✓ MongoDB está listo en puerto 27017
+✓ Backend está disponible en http://localhost:8080
+✓ Frontend está disponible en http://localhost:3000
+
+🎉 DESPLIEGUE COMPLETADO CON ÉXITO
+
+STATUS:
+NAME                COMMAND             SERVICE      STATUS
+backend             "java -jar ..."     backend      Up
+frontend            "npm run dev"       frontend     Up
+postgres            "postgres"          postgres     Up
+mongodb             "mongod"            mongodb      Up
+
+📊 SERVICIOS DISPONIBLES
+
+  Backend API:         http://localhost:8080
+  API Docs (Swagger):  http://localhost:8080/swagger-ui.html
+  Frontend:            http://localhost:3000
+  PostgreSQL:          localhost:5432
+  MongoDB:             localhost:27017
+```
+
+#### 🏭 Despliegue en producción
+```bash
+bash scripts/deploy.sh prod
+```
+- ⚠️ Toma más tiempo (build sin cache)
+- ✓ Imágenes optimizadas
+- ✓ Perfecto para servidores
+
+#### 🧹 Limpiar y redeploy (útil para reset)
+```bash
+bash scripts/deploy.sh dev --clean
+```
+- ✓ Detiene todos los servicios
+- ✓ Elimina volúmenes de datos
+- ✓ Limpia imágenes antiguas
+- ✓ Redeploy desde cero (base de datos vacía)
+
+### Monitoreo durante y después del despliegue
+
+#### Ver logs en tiempo real
+```bash
+docker compose logs -f backend frontend
+```
+
+#### Ver estado de contenedores
+```bash
+docker compose ps
+```
+
+#### Acceder a un contenedor
+```bash
+# Backend (Spring Boot)
+docker compose exec backend bash
+
+# Frontend (Node.js)
+docker compose exec frontend sh
+
+# PostgreSQL
+docker compose exec postgres psql -U agrotech -d agrotech_db
+
+# MongoDB
+docker compose exec mongodb mongosh -u admin -p
+```
+
+#### Reiniciar un servicio específico
+```bash
+# Reiniciar solo backend
+docker compose restart backend
+
+# Reiniciar todo
+docker compose restart
+```
+
+### Detener la aplicación
+
+```bash
+# Detener pero mantener datos
+docker compose down
+
+# Detener y limpiar volúmenes (ELIMINA DATOS)
+docker compose down -v
+
+# Detener y eliminar contenedores, redes e imágenes
+docker compose down -v --rmi all
+```
+
+### Troubleshooting de despliegue
+
+#### ❌ Error: "Puerto 8080 está en uso"
+```bash
+# Opción 1: Cambiar puerto en .env
+# FRONTEND_PORT=3001
+
+# Opción 2: Encontrar y matar el proceso
+lsof -i :8080
+kill -9 <PID>
+
+# Opción 3: Limpiar y redeploy
+bash scripts/deploy.sh dev --clean
+```
+
+#### ❌ Error: "Espacio insuficiente en disco"
+```bash
+# Liberar espacio
+docker system prune -a --volumes
+
+# Luego redeploy
+bash scripts/deploy.sh dev
+```
+
+#### ❌ Backend tarda mucho en iniciar
+```bash
+# Ver logs del backend
+docker compose logs -f backend
+
+# Esperar a que la BD esté lista (máximo 2 minutos)
+# Luego reiniciar backend
+docker compose restart backend
+```
+
+#### ❌ Frontend muestra "Connection refused"
+```bash
+# 1. Verificar que backend está listo
+curl http://localhost:8080
+
+# 2. Ver logs frontend
+docker compose logs -f frontend
+
+# 3. Reiniciar frontend
+docker compose restart frontend
 ```
 
 ---
