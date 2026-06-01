@@ -448,23 +448,31 @@ const Alertas = () => {
                 <div className="space-y-4">
                   {configuraciones.map(config => (
                     <div key={config.id} className="bg-white border border-gray-200 rounded-3xl p-4 grid gap-4 sm:grid-cols-[1fr_auto] items-start">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-3xl flex items-center justify-center">
+                      <div className="flex items-start gap-4 min-w-0">
+                        <div className="w-12 h-12 bg-blue-100 rounded-3xl flex-shrink-0 flex items-center justify-center">
                           <span className="text-2xl">{getTipoLabel(config.tipo).split(' ')[0]}</span>
                         </div>
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <p className="font-semibold text-gray-900">{getTipoLabel(config.tipo)}</p>
-                          <p className="mt-1 text-sm text-gray-600">Umbral: {config.umbralMin} - {config.umbralMax}</p>
+                          <p className="mt-1 text-sm text-gray-600 break-words">
+                            {config.condicion && config.umbral != null 
+                              ? `${config.condicion === 'MAYOR_QUE' ? 'Mayor que' : config.condicion === 'MENOR_QUE' ? 'Menor que' : 'Igual a'} ${config.umbral} ${getTipoUnit(config.tipo)}`
+                              : `Rango: ${config.umbralMin} - ${config.umbralMax} ${getTipoUnit(config.tipo)}`
+                            }
+                          </p>
                           {config.mensaje && (
-                            <p className="mt-2 text-sm text-gray-500">{config.mensaje}</p>
+                            <p className="mt-2 text-sm text-gray-500 break-words">"{config.mensaje}"</p>
                           )}
                           <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full ${config.prioridad === 'ALTA' ? 'bg-red-100 text-red-700' : config.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full flex-shrink-0 ${config.prioridad === 'ALTA' ? 'bg-red-100 text-red-700' : config.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-700' : config.prioridad === 'BAJA' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
                               {config.prioridad || 'MEDIA'}
                             </span>
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-white flex-shrink-0 ${config.condicion && config.umbral != null ? 'bg-indigo-500' : 'bg-orange-500'}`}>
+                              {config.condicion && config.umbral != null ? 'Comparación' : 'Rango'}
+                            </span>
                             {(config.loteNombre || config.dispositivoNombre) && (
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
-                                {config.loteNombre ? `Lote ${config.loteNombre}` : `Dispositivo ${config.dispositivoNombre}`}
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 flex-shrink-0">
+                                {config.loteNombre ? `Lote: ${config.loteNombre}` : `Dispositivo: ${config.dispositivoNombre}`}
                               </span>
                             )}
                           </div>

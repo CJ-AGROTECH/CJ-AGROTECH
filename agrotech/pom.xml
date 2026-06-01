@@ -15,6 +15,7 @@
 	<description>Plataforma IoT para monitoreo en tiempo real de cultivos</description>
 	<properties>
 		<java.version>21</java.version>
+		<flyway.version>12.1.0</flyway.version>
 	</properties>
 	<dependencies>
 		<!-- CORE DEPENDENCIES -->
@@ -41,16 +42,23 @@
 			<artifactId>spring-boot-starter-data-mongodb</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-flyway</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-core</artifactId>
+			<version>${flyway.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-database-postgresql</artifactId>
+			<version>${flyway.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
+			<version>42.7.3</version>
 			<scope>runtime</scope>
 		</dependency>
 

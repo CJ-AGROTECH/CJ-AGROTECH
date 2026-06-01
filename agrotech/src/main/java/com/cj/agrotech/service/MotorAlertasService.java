@@ -138,7 +138,7 @@ public class MotorAlertasService {
             LocalDateTime unaHoraAtras = LocalDateTime.now().minusHours(1);
             boolean yaAlertado = historialAlertaRepository.findAll().stream()
                     .anyMatch(a ->
-                            targetMatches(a, dispositivo, loteId) &&
+                            targetMatches(a, regla) &&
                                     a.getMensaje().contains(regla.getVariable().name()) &&
                                     a.getFecha().isAfter(unaHoraAtras)
                     );
@@ -150,8 +150,8 @@ public class MotorAlertasService {
                         .fecha(LocalDateTime.now())
                         .prioridad(regla.getPrioridad())
                         .leida(false)
-                        .dispositivo(dispositivo)
-                        .lote(dispositivo != null ? dispositivo.getLote() : (loteId != null ? loteRepository.findById(loteId).orElse(null) : null))
+                        .dispositivo(regla.getDispositivo())
+                        .lote(regla.getLote())
                         .build();
                 historialAlertaRepository.save(alerta);
                 log.warn("Alerta registrada: {} | Prioridad {}", mensaje, regla.getPrioridad());
@@ -159,12 +159,15 @@ public class MotorAlertasService {
         }
     }
 
-    private boolean targetMatches(HistorialAlerta alerta, Dispositivo dispositivo, UUID loteId) {
-        if (dispositivo != null && alerta.getDispositivo() != null) {
-            return alerta.getDispositivo().getId().equals(dispositivo.getId());
+    private boolean targetMatches(HistorialAlerta alerta, ConfiguracionAlerta regla) {
+        // Comparar basándose en el target real de la regla (dispositivo o lote)
+        if (regla.getDispositivo() != null) {
+            return alerta.getDispositivo() != null && 
+                   alerta.getDispositivo().getId().equals(regla.getDispositivo().getId());
         }
-        if (loteId != null && alerta.getLote() != null) {
-            return alerta.getLote().getId().equals(loteId);
+        if (regla.getLote() != null) {
+            return alerta.getLote() != null && 
+                   alerta.getLote().getId().equals(regla.getLote().getId());
         }
         return false;
     }
