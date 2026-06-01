@@ -9,6 +9,8 @@ public record ConfiguracionAlertaRequest(
         Double umbralMin,
         Double umbralMax,
         String mensaje,
-        String prioridad
+        String prioridad,
+        String condicion,
+        Double umbral
 ) {
 }

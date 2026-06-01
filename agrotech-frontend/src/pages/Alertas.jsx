@@ -18,7 +18,10 @@ const Alertas = () => {
     prioridad: 'MEDIA',
     umbralMin: '',
     umbralMax: '',
-    mensaje: ''
+    mensaje: '',
+    useComparison: false,
+    condicion: 'MAYOR_QUE',
+    umbral: ''
   });
 
   useEffect(() => {
@@ -105,17 +108,46 @@ const Alertas = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      const payload = {
-        dispositivoId: formData.targetType === 'DISPOSITIVO' ? formData.targetId : null,
-        loteId: formData.targetType === 'LOTE' ? formData.targetId : null,
-        tipo: formData.tipo,
-        prioridad: formData.prioridad,
-        umbralMin: parseFloat(formData.umbralMin),
-        umbralMax: parseFloat(formData.umbralMax),
-        mensaje: formData.mensaje
-      };
+    setError('');
+    if (!formData.targetId) {
+      setError('Selecciona un lote o dispositivo antes de crear la regla.');
+      return;
+    }
 
+    let payload = {
+      dispositivoId: formData.targetType === 'DISPOSITIVO' ? formData.targetId : null,
+      loteId: formData.targetType === 'LOTE' ? formData.targetId : null,
+      tipo: formData.tipo,
+      prioridad: formData.prioridad,
+      mensaje: formData.mensaje
+    };
+
+    if (formData.useComparison) {
+      const umbralNum = parseFloat(formData.umbral);
+      if (Number.isNaN(umbralNum)) {
+        setError('Ingresa un valor numérico válido para el umbral.');
+        return;
+      }
+      if (!formData.condicion) {
+        setError('Selecciona una condición para la comparación.');
+        return;
+      }
+      payload = { ...payload, condicion: formData.condicion, umbral: umbralNum };
+    } else {
+      const umbralMinNum = parseFloat(formData.umbralMin);
+      const umbralMaxNum = parseFloat(formData.umbralMax);
+      if (Number.isNaN(umbralMinNum) || Number.isNaN(umbralMaxNum)) {
+        setError('Ingresa valores numéricos válidos para los umbrales.');
+        return;
+      }
+      if (umbralMinNum >= umbralMaxNum) {
+        setError('El umbral mínimo debe ser menor que el máximo.');
+        return;
+      }
+      payload = { ...payload, umbralMin: umbralMinNum, umbralMax: umbralMaxNum };
+    }
+
+    try {
       if (editingConfig) {
         await api.put(`/alertas/configuracion/${editingConfig.id}`, payload);
       } else {
@@ -130,14 +162,18 @@ const Alertas = () => {
         prioridad: 'MEDIA',
         umbralMin: '',
         umbralMax: '',
-        mensaje: ''
+        mensaje: '',
+        useComparison: false,
+        condicion: 'MAYOR_QUE',
+        umbral: ''
       });
       if (formData.targetId) {
         fetchConfigs(formData.targetType, formData.targetId);
       }
     } catch (error) {
       console.error('Error saving config:', error);
-      setError('Error al guardar la configuración');
+      const msg = error.response?.data?.message || error.response?.data?.error || 'Error al guardar la configuración';
+      setError(msg);
     }
   };
 
@@ -150,7 +186,10 @@ const Alertas = () => {
       prioridad: config.prioridad || 'MEDIA',
       umbralMin: config.umbralMin?.toString() || '',
       umbralMax: config.umbralMax?.toString() || '',
-      mensaje: config.mensaje || ''
+      mensaje: config.mensaje || '',
+      useComparison: config.condicion != null || config.umbral != null,
+      condicion: config.condicion || 'MAYOR_QUE',
+      umbral: config.umbral?.toString() || ''
     });
     setShowModal(true);
   };
@@ -186,7 +225,10 @@ const Alertas = () => {
       tipo: 'TEMPERATURA',
       umbralMin: '',
       umbralMax: '',
-      mensaje: ''
+      mensaje: '',
+      useComparison: false,
+      condicion: 'MAYOR_QUE',
+      umbral: ''
     });
     setShowModal(true);
   };
@@ -198,6 +240,33 @@ const Alertas = () => {
       'LUMINOSIDAD': '☀️ Luminosidad'
     };
     return labels[tipo] || tipo;
+  };
+
+  const getTipoUnit = (tipo) => {
+    const units = {
+      'TEMPERATURA': '°C',
+      'HUMEDAD': '%',
+      'LUMINOSIDAD': 'lux'
+    };
+    return units[tipo] || '';
+  };
+
+  const getTipoExample = (tipo) => {
+    const examples = {
+      'TEMPERATURA': { min: '15', max: '30' },
+      'HUMEDAD': { min: '20', max: '80' },
+      'LUMINOSIDAD': { min: '2000', max: '10000' }
+    };
+    return examples[tipo] || { min: '0', max: '100' };
+  };
+
+  const getTipoHint = (tipo) => {
+    const hints = {
+      'TEMPERATURA': 'Ingrese un rango en grados Celsius. Por ejemplo, 15°C a 30°C para condiciones normales de clima de cultivo.',
+      'HUMEDAD': 'Ingrese un rango en porcentaje de humedad del suelo. Por ejemplo, 20% a 80% según el tipo de cultivo.',
+      'LUMINOSIDAD': 'Ingrese un rango en lux. Por ejemplo, 2000 a 10000 lux para niveles de luz adecuados en campo abierto.'
+    };
+    return hints[tipo] || 'Ingrese un rango de valores válido para esta alerta.';
   };
 
   if (loading) {
@@ -269,35 +338,6 @@ const Alertas = () => {
             className={`flex-1 px-5 py-4 text-center font-medium transition-colors ${
               activeTab === 'configuracion'
                 ? 'text-green-600 bg-green-50'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            ⚙️ Configuración de Reglas
-          </button>
-        </div>
-
-        {/* Tab Content */}
-        <div className="p-6">
-          <button
-            onClick={() => setActiveTab('historial')}
-            className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
-              activeTab === 'historial'
-                ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            📋 Historial de Alertas
-            {historial.length > 0 && (
-              <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                {historial.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('configuracion')}
-            className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
-              activeTab === 'configuracion'
-                ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
@@ -384,6 +424,16 @@ const Alertas = () => {
                 </div>
               </div>
 
+              <div className="rounded-3xl bg-green-50 border border-green-100 p-4 mb-4 text-sm text-green-800">
+                <p className="font-semibold">¿Cómo funciona esta alerta?</p>
+                <p className="mt-2 text-gray-700">
+                  Selecciona un objetivo y define un rango mínimo y máximo. Si el sensor mide un valor fuera de ese rango, el sistema genera una alerta.
+                </p>
+                <p className="mt-2 text-gray-700">
+                  Por ejemplo, para temperatura usamos grados Celsius (°C), para humedad usamos porcentaje (%) y para luminosidad usamos lux.
+                </p>
+              </div>
+
               {formData.targetId && (
                 <button
                   onClick={openNewModal}
@@ -462,56 +512,95 @@ const Alertas = () => {
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de Alerta
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.useComparison}
+                    onChange={(e) => setFormData({ ...formData, useComparison: e.target.checked })}
+                  />
+                  <span className="text-sm font-medium text-gray-700">Usar comparación única (condición + umbral)</span>
                 </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Alerta</label>
                 <select
                   name="tipo"
                   value={formData.tipo}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-3xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 >
                   <option value="TEMPERATURA">🌡️ Temperatura</option>
                   <option value="HUMEDAD">💧 Humedad</option>
                   <option value="LUMINOSIDAD">☀️ Luminosidad</option>
                 </select>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Umbral Mínimo
-                  </label>
-                  <input
-                    type="number"
-                    name="umbralMin"
-                    value={formData.umbralMin}
-                    onChange={handleInputChange}
-                    required
-                    step="0.1"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-3xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="15"
-                  />
+
+              {formData.useComparison ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Condición</label>
+                    <select
+                      name="condicion"
+                      value={formData.condicion}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-3xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    >
+                      <option value="MAYOR_QUE">Mayor que</option>
+                      <option value="MENOR_QUE">Menor que</option>
+                      <option value="IGUAL_A">Igual a</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Umbral ({getTipoUnit(formData.tipo)})</label>
+                    <input
+                      type="number"
+                      name="umbral"
+                      value={formData.umbral}
+                      onChange={handleInputChange}
+                      required={formData.useComparison}
+                      step="0.1"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-3xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder={getTipoExample(formData.tipo).min}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Umbral Máximo
-                  </label>
-                  <input
-                    type="number"
-                    name="umbralMax"
-                    value={formData.umbralMax}
-                    onChange={handleInputChange}
-                    required
-                    step="0.1"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-3xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="30"
-                  />
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Umbral Mínimo ({getTipoUnit(formData.tipo)})</label>
+                      <input
+                        type="number"
+                        name="umbralMin"
+                        value={formData.umbralMin}
+                        onChange={handleInputChange}
+                        required={!formData.useComparison}
+                        step="0.1"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-3xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder={getTipoExample(formData.tipo).min}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Umbral Máximo ({getTipoUnit(formData.tipo)})</label>
+                      <input
+                        type="number"
+                        name="umbralMax"
+                        value={formData.umbralMax}
+                        onChange={handleInputChange}
+                        required={!formData.useComparison}
+                        step="0.1"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-3xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder={getTipoExample(formData.tipo).max}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">{getTipoHint(formData.tipo)}</p>
+                </>
+              )}
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Prioridad
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
                 <select
                   name="prioridad"
                   value={formData.prioridad}
@@ -523,10 +612,9 @@ const Alertas = () => {
                   <option value="BAJA">Baja</option>
                 </select>
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mensaje de Alerta
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mensaje de Alerta</label>
                 <input
                   type="text"
                   name="mensaje"
@@ -536,6 +624,7 @@ const Alertas = () => {
                   placeholder="Temperatura fuera de rango"
                 />
               </div>
+
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"

@@ -22,7 +22,7 @@ public class ConfiguracionAlerta {
     private VariableSensor variable;
 
     @Enumerated(EnumType.STRING)
-    @Column
+    @Column(nullable = true)
     private CondicionAlerta condicion;
 
     @Column

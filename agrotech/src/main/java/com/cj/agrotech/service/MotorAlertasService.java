@@ -77,6 +77,20 @@ public class MotorAlertasService {
         regla.setPrioridad(PrioridadAlerta.valueOf(
                 request.prioridad() != null ? request.prioridad() : PrioridadAlerta.MEDIA.name()));
 
+        // Mapear condicion y umbral si vienen en la petición (comparación única).
+        // No establecer valores por defecto arbitrarios: si no se envía `condicion`
+        // o `umbral`, se interpretará como una regla por rango (`umbralMin`/`umbralMax`).
+        if (request.condicion() != null) {
+            try {
+                regla.setCondicion(CondicionAlerta.valueOf(request.condicion()));
+            } catch (IllegalArgumentException ex) {
+                // invalid enum - ignore and leave null
+            }
+        }
+        if (request.umbral() != null) {
+            regla.setUmbral(request.umbral());
+        }
+
         if (request.dispositivoId() != null) {
             dispositivoRepository.findById(request.dispositivoId()).ifPresent(regla::setDispositivo);
         }
