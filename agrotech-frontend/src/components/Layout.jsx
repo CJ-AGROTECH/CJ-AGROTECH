@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 
 const Layout = ({ children }) => {
@@ -9,6 +9,7 @@ const Layout = ({ children }) => {
   const [user, setUser] = useState(null);
   const [alertasCount, setAlertasCount] = useState(0);
   const [alertas, setAlertas] = useState([]);
+  const prevAlertasCountRef = useRef(0);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -18,7 +19,16 @@ const Layout = ({ children }) => {
     }
     fetchUserData();
     fetchAlertas();
+
+    const interval = setInterval(fetchAlertas, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (notificationsOpen) {
+      fetchAlertas();
+    }
+  }, [notificationsOpen]);
 
   const fetchUserData = async () => {
     try {
@@ -33,11 +43,39 @@ const Layout = ({ children }) => {
     }
   };
 
+  const playAlertSound = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const context = new AudioContext();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, context.currentTime);
+      gain.gain.setValueAtTime(0.18, context.currentTime);
+
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.14);
+      oscillator.onended = () => context.close();
+    } catch (error) {
+      // ignore autoplay restrictions or unsupported audio context
+    }
+  };
+
   const fetchAlertas = async () => {
     try {
       const response = await api.get('/alertas/historial/activas');
+      const newCount = response.data.length;
       setAlertas(response.data);
-      setAlertasCount(response.data.length);
+      setAlertasCount(newCount);
+      if (newCount > prevAlertasCountRef.current) {
+        playAlertSound();
+      }
+      prevAlertasCountRef.current = newCount;
     } catch (error) {
       console.error('Error fetching alertas:', error);
     }
@@ -178,6 +216,22 @@ const Layout = ({ children }) => {
             </div>
           </div>
         </div>
+
+        {alertasCount > 0 && (
+          <div className="bg-red-600 text-white px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <p className="font-semibold">Hay {alertasCount} alerta{alertasCount === 1 ? '' : 's'} activa{alertasCount === 1 ? '' : 's'} en el sistema.</p>
+              <p className="text-sm text-red-100">Abre las notificaciones o ve a la sección Alertas para revisar los detalles.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setNotificationsOpen(true); navigate('/alertas'); }}
+              className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
+            >
+              Ver alertas
+            </button>
+          </div>
+        )}
 
         {/* Mobile Menu */}
         {menuOpen && (

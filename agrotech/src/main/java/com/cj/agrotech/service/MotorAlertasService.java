@@ -130,21 +130,19 @@ public class MotorAlertasService {
             Float valor = obtenerValorVariable(telemetria, regla.getVariable().name());
             if (valor == null) continue;
 
-            boolean cumpleCondicion = evaluarCondicion(regla, valor);
-            if (!cumpleCondicion) {
+            boolean fueraRango = cumpleCondicion(regla, valor);
+            boolean cercaUmbral = !fueraRango && estaCercaDeUmbral(regla, valor);
+            if (!fueraRango && !cercaUmbral) {
                 continue;
             }
 
+            String mensaje = buildMensajeAlerta(regla, valor, fueraRango, cercaUmbral);
             LocalDateTime unaHoraAtras = LocalDateTime.now().minusHours(1);
             boolean yaAlertado = historialAlertaRepository.findAll().stream()
-                    .anyMatch(a ->
-                            targetMatches(a, regla) &&
-                                    a.getMensaje().contains(regla.getVariable().name()) &&
-                                    a.getFecha().isAfter(unaHoraAtras)
-                    );
+                    .filter(a -> targetMatches(a, regla))
+                    .anyMatch(a -> a.getMensaje().equals(mensaje) && a.getFecha().isAfter(unaHoraAtras));
 
             if (!yaAlertado) {
-                String mensaje = buildMensajeAlerta(regla, valor);
                 HistorialAlerta alerta = HistorialAlerta.builder()
                         .mensaje(mensaje)
                         .fecha(LocalDateTime.now())
@@ -160,19 +158,18 @@ public class MotorAlertasService {
     }
 
     private boolean targetMatches(HistorialAlerta alerta, ConfiguracionAlerta regla) {
-        // Comparar basándose en el target real de la regla (dispositivo o lote)
         if (regla.getDispositivo() != null) {
-            return alerta.getDispositivo() != null && 
-                   alerta.getDispositivo().getId().equals(regla.getDispositivo().getId());
+            return alerta.getDispositivo() != null &&
+                    alerta.getDispositivo().getId().equals(regla.getDispositivo().getId());
         }
         if (regla.getLote() != null) {
-            return alerta.getLote() != null && 
-                   alerta.getLote().getId().equals(regla.getLote().getId());
+            return alerta.getLote() != null &&
+                    alerta.getLote().getId().equals(regla.getLote().getId());
         }
         return false;
     }
 
-    private boolean evaluarCondicion(ConfiguracionAlerta regla, Float valor) {
+    private boolean cumpleCondicion(ConfiguracionAlerta regla, Float valor) {
         if (regla.getUmbralMin() != null && valor < regla.getUmbralMin()) {
             return true;
         }
@@ -189,26 +186,97 @@ public class MotorAlertasService {
         return false;
     }
 
-    private String buildMensajeAlerta(ConfiguracionAlerta regla, Float valor) {
+    private boolean estaCercaDeUmbral(ConfiguracionAlerta regla, Float valor) {
+        if (regla.getUmbralMin() != null && regla.getUmbralMax() != null) {
+            if (valor >= regla.getUmbralMin() && valor <= regla.getUmbralMax()) {
+                float margen = Math.max((float) ((regla.getUmbralMax() - regla.getUmbralMin()) * 0.1f), 1f);
+                return valor - regla.getUmbralMin() <= margen || regla.getUmbralMax() - valor <= margen;
+            }
+            return false;
+        }
+        if (regla.getUmbralMin() != null) {
+            float margen = Math.max(regla.getUmbralMin() * 0.1f, 1f);
+            return valor >= regla.getUmbralMin() && valor - regla.getUmbralMin() <= margen;
+        }
+        if (regla.getUmbralMax() != null) {
+            float margen = Math.max(regla.getUmbralMax() * 0.1f, 1f);
+            return valor <= regla.getUmbralMax() && regla.getUmbralMax() - valor <= margen;
+        }
+        if (regla.getCondicion() != null && regla.getUmbral() != null) {
+            float margen = Math.max(regla.getUmbral() * 0.1f, 1f);
+            return switch (regla.getCondicion()) {
+                case MAYOR_QUE -> valor < regla.getUmbral() && regla.getUmbral() - valor <= margen;
+                case MENOR_QUE -> valor > regla.getUmbral() && valor - regla.getUmbral() <= margen;
+                case IGUAL_A -> Math.abs(valor - regla.getUmbral()) <= margen;
+            };
+        }
+        return false;
+    }
+
+    private String buildMensajeAlerta(ConfiguracionAlerta regla, Float valor, boolean fueraRango, boolean cercaUmbral) {
+        String ubicacion = buildUbicacionMensaje(regla);
+        String unidad = getUnidad(regla.getVariable());
+
         if (regla.getMensaje() != null && !regla.getMensaje().isBlank()) {
-            return regla.getMensaje();
+            return regla.getMensaje().trim() + (ubicacion.isBlank() ? "" : " " + ubicacion);
         }
 
         String descripcion = regla.getVariable().getDescripcion();
-        if (regla.getUmbralMin() != null && valor < regla.getUmbralMin()) {
-            return String.format("Alerta: %s está por debajo de %.2f", descripcion, regla.getUmbralMin());
+        if (fueraRango) {
+            if (regla.getUmbralMin() != null && valor < regla.getUmbralMin()) {
+                return String.format("⚠️ Alerta: %s %.2f%s está por debajo del mínimo de %.2f%s %s", descripcion, valor, unidad, regla.getUmbralMin(), unidad, ubicacion);
+            }
+            if (regla.getUmbralMax() != null && valor > regla.getUmbralMax()) {
+                return String.format("⚠️ Alerta: %s %.2f%s está por encima del máximo de %.2f%s %s", descripcion, valor, unidad, regla.getUmbralMax(), unidad, ubicacion);
+            }
+            if (regla.getCondicion() != null && regla.getUmbral() != null) {
+                return String.format("⚠️ Alerta: %s %.2f%s %s %.2f%s %s", descripcion, valor, unidad,
+                        regla.getCondicion() == CondicionAlerta.MAYOR_QUE ? ">" : regla.getCondicion() == CondicionAlerta.MENOR_QUE ? "<" : "=",
+                        regla.getUmbral(), unidad, ubicacion);
+            }
+            return String.format("⚠️ Alerta: %s fuera de rango (valor actual: %.2f%s) %s", descripcion, valor, unidad, ubicacion);
         }
-        if (regla.getUmbralMax() != null && valor > regla.getUmbralMax()) {
-            return String.format("Alerta: %s está por encima de %.2f", descripcion, regla.getUmbralMax());
+
+        if (cercaUmbral) {
+            if (regla.getUmbralMin() != null && valor >= regla.getUmbralMin()) {
+                return String.format("⚠️ Aviso: %s %.2f%s se está acercando al límite mínimo de %.2f%s %s", descripcion, valor, unidad, regla.getUmbralMin(), unidad, ubicacion);
+            }
+            if (regla.getUmbralMax() != null && valor <= regla.getUmbralMax()) {
+                return String.format("⚠️ Aviso: %s %.2f%s se está acercando al límite máximo de %.2f%s %s", descripcion, valor, unidad, regla.getUmbralMax(), unidad, ubicacion);
+            }
+            if (regla.getCondicion() != null && regla.getUmbral() != null) {
+                return String.format("⚠️ Aviso: %s %.2f%s se está acercando al umbral de %.2f%s %s", descripcion, valor, unidad, regla.getUmbral(), unidad, ubicacion);
+            }
         }
-        if (regla.getCondicion() != null && regla.getUmbral() != null) {
-            return String.format("Alerta: %s = %.2f %s %.2f",
-                    descripcion, valor,
-                    regla.getCondicion() == CondicionAlerta.MAYOR_QUE ? ">" :
-                            regla.getCondicion() == CondicionAlerta.MENOR_QUE ? "<" : "=",
-                    regla.getUmbral());
+
+        return String.format("⚠️ Alerta: %s fuera de rango (valor actual: %.2f%s) %s", descripcion, valor, unidad, ubicacion);
+    }
+
+    private String buildUbicacionMensaje(ConfiguracionAlerta regla) {
+        if (regla.getDispositivo() != null) {
+            String dispositivo = regla.getDispositivo().getNombre();
+            String lote = regla.getDispositivo().getLote() != null ? regla.getDispositivo().getLote().getNombre() : null;
+            if (lote != null) {
+                return String.format("en dispositivo %s (Lote: %s)", dispositivo, lote);
+            }
+            return String.format("en dispositivo %s", dispositivo);
         }
-        return String.format("Alerta: %s fuera de rango (valor actual: %.2f)", descripcion, valor);
+        if (regla.getLote() != null) {
+            return String.format("en lote %s", regla.getLote().getNombre());
+        }
+        return "";
+    }
+
+    private String getUnidad(VariableSensor variable) {
+        return switch (variable) {
+            case TEMP_AIRE, TEMP_SUELO -> "°C";
+            case HUM_AIRE, HUM_SUELO -> "%";
+            case LUX -> "lux";
+            case PRESION -> "hPa";
+            case PRECIPITACION -> "mm";
+            case VIENTO -> "m/s";
+            default -> "";
+        };
     }
 
     private Float obtenerValorVariable(Telemetria t, String variable) {

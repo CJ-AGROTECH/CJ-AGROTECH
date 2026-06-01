@@ -177,12 +177,28 @@ const Alertas = () => {
     }
   };
 
+  const normalizeTipoForForm = (tipo) => {
+    switch (tipo) {
+      case 'TEMP_AIRE':
+      case 'TEMPERATURA':
+        return 'TEMPERATURA';
+      case 'HUM_AIRE':
+      case 'HUMEDAD':
+        return 'HUMEDAD';
+      case 'LUX':
+      case 'LUMINOSIDAD':
+        return 'LUMINOSIDAD';
+      default:
+        return tipo;
+    }
+  };
+
   const handleEdit = (config) => {
     setEditingConfig(config);
     setFormData({
       targetType: config.loteId ? 'LOTE' : 'DISPOSITIVO',
       targetId: config.loteId || config.dispositivoId || '',
-      tipo: config.tipo,
+      tipo: normalizeTipoForForm(config.tipo),
       prioridad: config.prioridad || 'MEDIA',
       umbralMin: config.umbralMin?.toString() || '',
       umbralMax: config.umbralMax?.toString() || '',
@@ -192,6 +208,54 @@ const Alertas = () => {
       umbral: config.umbral?.toString() || ''
     });
     setShowModal(true);
+  };
+
+  const getTipoLabel = (tipo) => {
+    const labels = {
+      'TEMPERATURA': '🌡️ Temperatura',
+      'HUMEDAD': '💧 Humedad',
+      'LUMINOSIDAD': '☀️ Luminosidad',
+      'TEMP_AIRE': '🌡️ Temperatura',
+      'HUM_AIRE': '💧 Humedad',
+      'LUX': '☀️ Luminosidad'
+    };
+    return labels[tipo] || tipo;
+  };
+
+  const getTipoUnit = (tipo) => {
+    const units = {
+      'TEMPERATURA': '°C',
+      'HUMEDAD': '%',
+      'LUMINOSIDAD': 'lux',
+      'TEMP_AIRE': '°C',
+      'HUM_AIRE': '%',
+      'LUX': 'lux'
+    };
+    return units[tipo] || '';
+  };
+
+  const getTipoExample = (tipo) => {
+    const examples = {
+      'TEMPERATURA': { min: '15', max: '30' },
+      'HUMEDAD': { min: '20', max: '80' },
+      'LUMINOSIDAD': { min: '2000', max: '10000' },
+      'TEMP_AIRE': { min: '15', max: '30' },
+      'HUM_AIRE': { min: '20', max: '80' },
+      'LUX': { min: '2000', max: '10000' }
+    };
+    return examples[tipo] || { min: '0', max: '100' };
+  };
+
+  const getTipoHint = (tipo) => {
+    const hints = {
+      'TEMPERATURA': 'Ingrese un rango en grados Celsius. Por ejemplo, 15°C a 30°C para condiciones normales de clima de cultivo.',
+      'HUMEDAD': 'Ingrese un rango en porcentaje de humedad del suelo. Por ejemplo, 20% a 80% según el tipo de cultivo.',
+      'LUMINOSIDAD': 'Ingrese un rango en lux. Por ejemplo, 2000 a 10000 lux para niveles de luz adecuados en campo abierto.',
+      'TEMP_AIRE': 'Ingrese un rango en grados Celsius. Por ejemplo, 15°C a 30°C para condiciones normales de clima de cultivo.',
+      'HUM_AIRE': 'Ingrese un rango en porcentaje de humedad del aire. Por ejemplo, 20% a 80% según el tipo de cultivo.',
+      'LUX': 'Ingrese un rango en lux. Por ejemplo, 2000 a 10000 lux para niveles de luz adecuados en campo abierto.'
+    };
+    return hints[tipo] || 'Ingrese un rango de valores válido para esta alerta.';
   };
 
   const handleDelete = async (id) => {
@@ -231,42 +295,6 @@ const Alertas = () => {
       umbral: ''
     });
     setShowModal(true);
-  };
-
-  const getTipoLabel = (tipo) => {
-    const labels = {
-      'TEMPERATURA': '🌡️ Temperatura',
-      'HUMEDAD': '💧 Humedad',
-      'LUMINOSIDAD': '☀️ Luminosidad'
-    };
-    return labels[tipo] || tipo;
-  };
-
-  const getTipoUnit = (tipo) => {
-    const units = {
-      'TEMPERATURA': '°C',
-      'HUMEDAD': '%',
-      'LUMINOSIDAD': 'lux'
-    };
-    return units[tipo] || '';
-  };
-
-  const getTipoExample = (tipo) => {
-    const examples = {
-      'TEMPERATURA': { min: '15', max: '30' },
-      'HUMEDAD': { min: '20', max: '80' },
-      'LUMINOSIDAD': { min: '2000', max: '10000' }
-    };
-    return examples[tipo] || { min: '0', max: '100' };
-  };
-
-  const getTipoHint = (tipo) => {
-    const hints = {
-      'TEMPERATURA': 'Ingrese un rango en grados Celsius. Por ejemplo, 15°C a 30°C para condiciones normales de clima de cultivo.',
-      'HUMEDAD': 'Ingrese un rango en porcentaje de humedad del suelo. Por ejemplo, 20% a 80% según el tipo de cultivo.',
-      'LUMINOSIDAD': 'Ingrese un rango en lux. Por ejemplo, 2000 a 10000 lux para niveles de luz adecuados en campo abierto.'
-    };
-    return hints[tipo] || 'Ingrese un rango de valores válido para esta alerta.';
   };
 
   if (loading) {
