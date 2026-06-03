@@ -85,8 +85,11 @@ export const AlertNotificationProvider = ({ children }) => {
   }, [playAlertSound, showToast]);
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return undefined;
     refreshAlertas();
     const interval = setInterval(refreshAlertas, 30000);
+    
     return () => clearInterval(interval);
   }, [refreshAlertas]);
 
