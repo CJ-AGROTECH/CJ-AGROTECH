@@ -41,11 +41,11 @@ public class ConfiguracionAlerta {
     @Column(length = 500)
     private String mensaje;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "dispositivo_id")
     private Dispositivo dispositivo;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "lote_id")
     private Lote lote;
 }

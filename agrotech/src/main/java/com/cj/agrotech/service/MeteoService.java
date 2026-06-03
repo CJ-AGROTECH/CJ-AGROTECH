@@ -9,13 +9,12 @@ import com.cj.agrotech.dto.OpenMeteoCurrentResponse;
 import com.cj.agrotech.exception.ResourceNotFoundException;
 import com.cj.agrotech.repository.FincaRepository;
 import com.cj.agrotech.repository.LoteRepository;
-import org.springframework.transaction.annotation.Transactional;
-import com.cj.agrotech.repository.TelemetriaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -30,10 +29,10 @@ public class MeteoService {
 
     private final FincaRepository fincaRepository;
     private final LoteRepository loteRepository;
-    private final TelemetriaRepository telemetriaRepository;
+    private final TelemetriaService telemetriaService;
     private final RestTemplate restTemplate;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void sincronizarClimaPorFinca(UUID fincaId) {
         Finca finca = fincaRepository.findById(fincaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Finca no encontrada"));
@@ -41,10 +40,9 @@ public class MeteoService {
         Double latitud = finca.getLatitud();
         Double longitud = finca.getLongitud();
 
-        List<Lote> lotes = finca.getLotes();
-        // Siempre ingestar datos generales de clima de la zona para la finca
         ingestClimaForCoordinates(fincaId, null, null, latitud, longitud);
 
+        List<Lote> lotes = finca.getLotes();
         if (lotes == null || lotes.isEmpty()) {
             return;
         }
@@ -54,7 +52,7 @@ public class MeteoService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void sincronizarClimaPorLote(UUID loteId) {
         Lote lote = loteRepository.findById(loteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lote no encontrado"));
@@ -64,15 +62,7 @@ public class MeteoService {
             throw new ResourceNotFoundException("Finca asociada al lote no encontrada");
         }
 
-        Double latitud = finca.getLatitud();
-        Double longitud = finca.getLongitud();
-
-        ingestClimaForLote(finca.getId(), lote, latitud, longitud);
-    }
-
-    private boolean shouldIngestForLote(Lote lote) {
-        List<Dispositivo> dispositivos = lote.getDispositivos();
-        return dispositivos == null || dispositivos.isEmpty() || dispositivos.stream().noneMatch(d -> d.getEstado() == EstadoDispositivo.ACTIVO);
+        ingestClimaForLote(finca.getId(), lote, finca.getLatitud(), finca.getLongitud());
     }
 
     private void ingestClimaForLote(UUID fincaId, Lote lote, Double latitud, Double longitud) {
@@ -80,20 +70,26 @@ public class MeteoService {
             return;
         }
 
-        List<Dispositivo> dispositivos = lote.getDispositivos() == null ? Collections.emptyList() : lote.getDispositivos();
+        List<Dispositivo> dispositivos = lote.getDispositivos() == null
+                ? Collections.emptyList()
+                : lote.getDispositivos();
         List<Dispositivo> activos = dispositivos.stream()
                 .filter(d -> d.getEstado() == EstadoDispositivo.ACTIVO)
                 .collect(Collectors.toList());
 
         if (activos.isEmpty()) {
+            // Usuario sin sensores: telemetría solo por lote (dispara alertas de lote)
             ingestClimaForCoordinates(fincaId, lote.getId(), null, latitud, longitud);
         } else {
-            activos.forEach(dispositivo -> ingestClimaForCoordinates(fincaId, lote.getId(), dispositivo.getId(), latitud, longitud));
+            // Con sensores activos: también se ingiere clima por dispositivo (alertas de dispositivo + lote)
+            activos.forEach(dispositivo ->
+                    ingestClimaForCoordinates(fincaId, lote.getId(), dispositivo.getId(), latitud, longitud));
         }
     }
 
     private void ingestClimaForCoordinates(UUID fincaId, UUID loteId, UUID dispositivoId, Double latitud, Double longitud) {
         if (latitud == null || longitud == null) {
+            log.warn("Finca/lote sin coordenadas; no se puede consultar Open-Meteo (loteId={})", loteId);
             return;
         }
 
@@ -102,86 +98,85 @@ public class MeteoService {
                 "&current_weather=true&hourly=relativehumidity_2m,precipitation,wind_speed_10m,surface_pressure,soil_temperature_0_to_7cm,soil_moisture_0_to_7cm&timezone=auto";
 
         try {
-            log.info("Consultando Open-Meteo para coordinates (loteId={}): {}", loteId, url);
+            log.debug("Open-Meteo loteId={} dispositivoId={}", loteId, dispositivoId);
             OpenMeteoCurrentResponse response = restTemplate.getForObject(url, OpenMeteoCurrentResponse.class);
 
             if (response == null) {
-                log.warn("Respuesta nula de Open-Meteo para coordinates (loteId={})", loteId);
+                log.warn("Respuesta nula de Open-Meteo (loteId={})", loteId);
                 return;
             }
 
-            if (response.current_weather() != null && response.hourly() != null && response.hourly().time() != null && !response.hourly().time().isEmpty()) {
-                int lastIndex = response.hourly().time().size() - 1;
-                Float humedad = safeGet(response.hourly().relativehumidity_2m(), lastIndex);
-                Float precipitacion = safeGet(response.hourly().precipitation(), lastIndex);
-                Float presion = safeGet(response.hourly().surface_pressure(), lastIndex);
-                Float tempSuelo = safeGet(response.hourly().soil_temperature_0_to_7cm(), lastIndex);
-                Float humSueloRaw = safeGet(response.hourly().soil_moisture_0_to_7cm(), lastIndex);
-                Float humSuelo = humSueloRaw == null ? null : humSueloRaw * 100;
-
-                Telemetria telemetria = Telemetria.builder()
-                        .fincaId(fincaId)
-                        .loteId(loteId)
-                        .dispositivoId(dispositivoId)
-                        .timestamp(Instant.now())
-                        .lecturas(new Telemetria.Lecturas(
-                                new Telemetria.Ambiente(
-                                        response.current_weather().temperature(),
-                                        humedad,
-                                        presion,
-                                        0.0f
-                                ),
-                                new Telemetria.Suelo(humSuelo, tempSuelo),
-                                new Telemetria.Clima(
-                                        precipitacion,
-                                        response.current_weather().windspeed()
-                                )
-                        ))
-                        .build();
-
-                telemetriaRepository.save(telemetria);
-                log.info("Telemetría guardada para coordinates (loteId={})", loteId);
+            if (response.current_weather() != null
+                    && response.hourly() != null
+                    && response.hourly().time() != null
+                    && !response.hourly().time().isEmpty()) {
+                persistirDesdeOpenMeteo(fincaId, loteId, dispositivoId, response, true);
             }
         } catch (HttpClientErrorException httpEx) {
-            log.warn("Open-Meteo returned HTTP error for coordinates (loteId={}): {}. Trying fallback without hourly fields.", loteId, httpEx.getMessage());
-            // Fallback: request only current weather (no hourly) and build Telemetria from current_weather
-            try {
-                String fallbackUrl = "https://api.open-meteo.com/v1/forecast?latitude=" + latitud +
-                        "&longitude=" + longitud +
-                        "&current_weather=true&timezone=auto";
-                log.info("Consultando Open-Meteo fallback para coordinates (loteId={}): {}", loteId, fallbackUrl);
-                OpenMeteoCurrentResponse fallbackResponse = restTemplate.getForObject(fallbackUrl, OpenMeteoCurrentResponse.class);
-
-                if (fallbackResponse != null && fallbackResponse.current_weather() != null) {
-                    Telemetria telemetria = Telemetria.builder()
-                            .fincaId(fincaId)
-                            .loteId(loteId)
-                            .dispositivoId(dispositivoId)
-                            .timestamp(Instant.now())
-                            .lecturas(new Telemetria.Lecturas(
-                                    new Telemetria.Ambiente(
-                                            fallbackResponse.current_weather().temperature(),
-                                            null,
-                                            null,
-                                            0.0f
-                                    ),
-                                    new Telemetria.Suelo(null, null),
-                                    new Telemetria.Clima(
-                                            null,
-                                            fallbackResponse.current_weather().windspeed()
-                                    )
-                            ))
-                            .build();
-
-                    telemetriaRepository.save(telemetria);
-                    log.info("Telemetría guardada (fallback) para coordinates (loteId={})", loteId);
-                }
-            } catch (Exception ex) {
-                log.error("Fallback failed for coordinates (loteId={}): {}", loteId, ex.getMessage(), ex);
-            }
+            log.warn("Open-Meteo error (loteId={}): {}. Usando fallback.", loteId, httpEx.getMessage());
+            ingestFallback(fincaId, loteId, dispositivoId, latitud, longitud);
         } catch (Exception e) {
-            log.error("Error al consultar Open-Meteo o guardar telemetría para coordinates (loteId={}): {}", loteId, e.getMessage(), e);
+            log.error("Error Open-Meteo (loteId={}): {}", loteId, e.getMessage(), e);
         }
+    }
+
+    private void ingestFallback(UUID fincaId, UUID loteId, UUID dispositivoId, Double latitud, Double longitud) {
+        try {
+            String fallbackUrl = "https://api.open-meteo.com/v1/forecast?latitude=" + latitud +
+                    "&longitude=" + longitud +
+                    "&current_weather=true&timezone=auto";
+            OpenMeteoCurrentResponse fallbackResponse = restTemplate.getForObject(fallbackUrl, OpenMeteoCurrentResponse.class);
+            if (fallbackResponse != null && fallbackResponse.current_weather() != null) {
+                persistirDesdeOpenMeteo(fincaId, loteId, dispositivoId, fallbackResponse, false);
+            }
+        } catch (Exception ex) {
+            log.error("Fallback Open-Meteo falló (loteId={}): {}", loteId, ex.getMessage(), ex);
+        }
+    }
+
+    private void persistirDesdeOpenMeteo(
+            UUID fincaId,
+            UUID loteId,
+            UUID dispositivoId,
+            OpenMeteoCurrentResponse response,
+            boolean conHourly) {
+
+        Float humedad = null;
+        Float precipitacion = null;
+        Float presion = null;
+        Float tempSuelo = null;
+        Float humSuelo = null;
+
+        if (conHourly && response.hourly() != null && response.hourly().time() != null && !response.hourly().time().isEmpty()) {
+            int lastIndex = response.hourly().time().size() - 1;
+            humedad = safeGet(response.hourly().relativehumidity_2m(), lastIndex);
+            precipitacion = safeGet(response.hourly().precipitation(), lastIndex);
+            presion = safeGet(response.hourly().surface_pressure(), lastIndex);
+            tempSuelo = safeGet(response.hourly().soil_temperature_0_to_7cm(), lastIndex);
+            Float humSueloRaw = safeGet(response.hourly().soil_moisture_0_to_7cm(), lastIndex);
+            humSuelo = humSueloRaw == null ? null : humSueloRaw * 100;
+        }
+
+        Telemetria telemetria = Telemetria.builder()
+                .fincaId(fincaId)
+                .loteId(loteId)
+                .dispositivoId(dispositivoId)
+                .timestamp(Instant.now())
+                .lecturas(new Telemetria.Lecturas(
+                        new Telemetria.Ambiente(
+                                response.current_weather().temperature(),
+                                humedad,
+                                presion,
+                                null),
+                        new Telemetria.Suelo(humSuelo, tempSuelo),
+                        new Telemetria.Clima(
+                                precipitacion,
+                                response.current_weather().windspeed())))
+                .diagnostico(new Telemetria.Diagnostico(100, -50))
+                .build();
+
+        telemetriaService.guardarLecturaClimatica(telemetria);
+        log.info("Clima Open-Meteo guardado y alertas evaluadas (loteId={}, dispositivoId={})", loteId, dispositivoId);
     }
 
     private Float safeGet(List<Float> values, int index) {

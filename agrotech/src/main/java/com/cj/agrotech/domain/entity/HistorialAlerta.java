@@ -28,11 +28,11 @@ public class HistorialAlerta {
     @Column(nullable = false)
     private Boolean leida;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "dispositivo_id")
     private Dispositivo dispositivo;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "lote_id")
     private Lote lote;
 }

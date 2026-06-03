@@ -1,15 +1,21 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../services/api';
+import { useAlertNotifications } from '../context/AlertNotificationContext';
 
 const Layout = ({ children }) => {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [user, setUser] = useState(null);
-  const [alertasCount, setAlertasCount] = useState(0);
-  const [alertas, setAlertas] = useState([]);
-  const prevAlertasCountRef = useRef(0);
+  const {
+    alertas,
+    alertasCount,
+    toast,
+    dismissToast,
+    notificationsOpen,
+    setNotificationsOpen,
+    refreshAlertas,
+  } = useAlertNotifications();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -18,17 +24,13 @@ const Layout = ({ children }) => {
       return;
     }
     fetchUserData();
-    fetchAlertas();
-
-    const interval = setInterval(fetchAlertas, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (notificationsOpen) {
-      fetchAlertas();
+      refreshAlertas();
     }
-  }, [notificationsOpen]);
+  }, [notificationsOpen, refreshAlertas]);
 
   const fetchUserData = async () => {
     try {
@@ -43,47 +45,15 @@ const Layout = ({ children }) => {
     }
   };
 
-  const playAlertSound = () => {
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const context = new AudioContext();
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(800, context.currentTime);
-      gain.gain.setValueAtTime(0.18, context.currentTime);
-
-      oscillator.connect(gain);
-      gain.connect(context.destination);
-
-      oscillator.start();
-      oscillator.stop(context.currentTime + 0.14);
-      oscillator.onended = () => context.close();
-    } catch (error) {
-      // ignore autoplay restrictions or unsupported audio context
-    }
-  };
-
-  const fetchAlertas = async () => {
-    try {
-      const response = await api.get('/alertas/historial/activas');
-      const newCount = response.data.length;
-      setAlertas(response.data);
-      setAlertasCount(newCount);
-      if (newCount > prevAlertasCountRef.current) {
-        playAlertSound();
-      }
-      prevAlertasCountRef.current = newCount;
-    } catch (error) {
-      console.error('Error fetching alertas:', error);
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
+  };
+
+  const prioridadClass = (prioridad) => {
+    if (prioridad === 'CRITICA' || prioridad === 'ALTA') return 'bg-red-100 text-red-700';
+    if (prioridad === 'MEDIA') return 'bg-yellow-100 text-yellow-700';
+    return 'bg-green-100 text-green-700';
   };
 
   const navItems = [
@@ -98,11 +68,42 @@ const Layout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation Bar */}
+      {toast && (
+        <div className="fixed top-20 right-4 z-[60] max-w-md w-full sm:w-96 animate-pulse">
+          <div className="bg-white border-l-4 border-red-500 rounded-lg shadow-2xl p-4">
+            <div className="flex justify-between items-start gap-2">
+              <div>
+                <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Nueva alerta</p>
+                <p className="mt-1 text-sm text-gray-900">{toast.mensaje}</p>
+                {(toast.dispositivoNombre || toast.loteNombre) && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    {toast.loteNombre ? `Lote: ${toast.loteNombre}` : `Dispositivo: ${toast.dispositivoNombre}`}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={dismissToast}
+                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => { dismissToast(); setNotificationsOpen(true); }}
+              className="mt-3 text-xs font-semibold text-green-700 hover:text-green-900"
+            >
+              Ver en notificaciones
+            </button>
+          </div>
+        </div>
+      )}
+
       <nav className="bg-white shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
             <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/dashboard')}>
               <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">A</span>
@@ -110,7 +111,6 @@ const Layout = ({ children }) => {
               <span className="text-xl font-bold text-gray-800">AGROTECH</span>
             </div>
 
-            {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-1">
               {navItems.map((item) => (
                 <NavLink
@@ -135,7 +135,6 @@ const Layout = ({ children }) => {
               ))}
             </div>
 
-            {/* User Menu */}
             <div className="flex items-center space-x-4 relative">
               <button
                 type="button"
@@ -155,22 +154,24 @@ const Layout = ({ children }) => {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <h3 className="text-sm font-semibold text-gray-900">Notificaciones</h3>
-                        <p className="text-xs text-gray-500 mt-1">Alertas activas e importantes del sistema.</p>
+                        <p className="text-xs text-gray-500 mt-1">Alertas activas en tiempo real.</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setNotificationsOpen(false)}
                         className="text-gray-500 hover:text-gray-700"
-                      >Cerrar</button>
+                      >
+                        Cerrar
+                      </button>
                     </div>
                   </div>
                   <div className="max-h-80 overflow-y-auto">
                     {alertas.length > 0 ? (
-                      alertas.slice(0, 5).map((alerta) => (
+                      alertas.slice(0, 8).map((alerta) => (
                         <div key={alerta.id} className="p-4 border-b border-gray-100 hover:bg-gray-50">
                           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                             <div>
-                              <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full ${alerta.prioridad === 'ALTA' ? 'bg-red-100 text-red-700' : alerta.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                              <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full ${prioridadClass(alerta.prioridad)}`}>
                                 {alerta.prioridad || 'MEDIA'}
                               </span>
                               <p className="mt-3 text-sm text-gray-900">{alerta.mensaje}</p>
@@ -180,7 +181,9 @@ const Layout = ({ children }) => {
                                 </p>
                               )}
                             </div>
-                            <span className="text-xs text-gray-500 whitespace-nowrap">{new Date(alerta.fecha).toLocaleTimeString('es-CO')}</span>
+                            <span className="text-xs text-gray-500 whitespace-nowrap">
+                              {alerta.fecha ? new Date(alerta.fecha).toLocaleString('es-CO') : ''}
+                            </span>
                           </div>
                         </div>
                       ))
@@ -193,7 +196,9 @@ const Layout = ({ children }) => {
                       type="button"
                       onClick={() => { setNotificationsOpen(false); navigate('/alertas'); }}
                       className="text-sm font-semibold text-green-700 hover:text-green-900"
-                    >Ver todas las alertas →</button>
+                    >
+                      Ver todas las alertas →
+                    </button>
                   </div>
                 </div>
               )}
@@ -203,8 +208,7 @@ const Layout = ({ children }) => {
               >
                 Cerrar Sesión
               </button>
-              
-              {/* Mobile Menu Button */}
+
               <button
                 className="md:hidden p-2 rounded-lg hover:bg-gray-100"
                 onClick={() => setMenuOpen(!menuOpen)}
@@ -220,20 +224,21 @@ const Layout = ({ children }) => {
         {alertasCount > 0 && (
           <div className="bg-red-600 text-white px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <p className="font-semibold">Hay {alertasCount} alerta{alertasCount === 1 ? '' : 's'} activa{alertasCount === 1 ? '' : 's'} en el sistema.</p>
-              <p className="text-sm text-red-100">Abre las notificaciones o ve a la sección Alertas para revisar los detalles.</p>
+              <p className="font-semibold">
+                Hay {alertasCount} alerta{alertasCount === 1 ? '' : 's'} activa{alertasCount === 1 ? '' : 's'}.
+              </p>
+              <p className="text-sm text-red-100">Revisa las notificaciones o la sección Alertas.</p>
             </div>
             <button
               type="button"
-              onClick={() => { setNotificationsOpen(true); navigate('/alertas'); }}
+              onClick={() => setNotificationsOpen(true)}
               className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
             >
-              Ver alertas
+              Abrir notificaciones
             </button>
           </div>
         )}
 
-        {/* Mobile Menu */}
         {menuOpen && (
           <div className="md:hidden bg-white border-t">
             <div className="px-4 py-2 space-y-1">
@@ -270,7 +275,6 @@ const Layout = ({ children }) => {
         )}
       </nav>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         {children}
       </main>

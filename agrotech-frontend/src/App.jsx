@@ -11,6 +11,7 @@ import Cultivos from './pages/Cultivos';
 import Alertas from './pages/Alertas';
 import Account from './pages/Account';
 import Layout from './components/Layout';
+import { AlertNotificationProvider } from './context/AlertNotificationContext';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -59,6 +60,7 @@ const PublicRoute = ({ children }) => {
 function App() {
   return (
     <Router>
+      <AlertNotificationProvider>
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Landing />} />
@@ -154,6 +156,7 @@ function App() {
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </AlertNotificationProvider>
     </Router>
   );
 }

@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../services/api';
+import { useAlertNotifications } from '../context/AlertNotificationContext';
 
 const Dashboard = () => {
+  const { alertas: alertasContexto, refreshAlertas } = useAlertNotifications();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -41,6 +43,10 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
+    setAlertasActivas(alertasContexto);
+  }, [alertasContexto]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       if (selectedFincaId) {
         fetchFincaClima(selectedFincaId);
@@ -61,8 +67,8 @@ const Dashboard = () => {
       setLoading(true);
       setError('');
 
-      const [alertasResponse, fincasResponse, lotesResponse, dispositivosResponse] = await Promise.all([
-        api.get('/alertas/historial/activas'),
+      await refreshAlertas();
+      const [fincasResponse, lotesResponse, dispositivosResponse] = await Promise.all([
         api.get('/fincas'),
         api.get('/lotes'),
         api.get('/dispositivos')
@@ -72,7 +78,6 @@ const Dashboard = () => {
       const lotesData = lotesResponse.data;
       const dispositivosData = dispositivosResponse.data;
 
-      setAlertasActivas(alertasResponse.data);
       setFincas(fincasData);
       setStats({
         totalFincas: fincasData.length,

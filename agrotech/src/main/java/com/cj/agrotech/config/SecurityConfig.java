@@ -53,8 +53,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth ->
                         auth.requestMatchers("/api/auth/**").permitAll()
                                 .requestMatchers("/api/health").permitAll()
-                                .requestMatchers("/api/telemetria/captura").permitAll() // Para captura de sensores
-                                .requestMatchers("/api/telemetria/simular").permitAll() // Demo without physical ESP32
+                                .requestMatchers("/api/telemetria/captura").permitAll() // Captura de sensores ESP32
+                                .requestMatchers("/api/alertas/stream").permitAll() // Allow SSE stream (public stream)
                                 .anyRequest().authenticated()
                 );
 
@@ -69,6 +69,8 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
                 "https://*.trycloudflare.com"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));

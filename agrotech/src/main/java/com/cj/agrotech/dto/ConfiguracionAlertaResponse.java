@@ -7,6 +7,8 @@ public record ConfiguracionAlertaResponse(
         String tipo,
         Double umbralMin,
         Double umbralMax,
+        String condicion,
+        Double umbral,
         String mensaje,
         String prioridad,
         UUID dispositivoId,

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import { useAlertNotifications } from '../context/AlertNotificationContext';
 
 const Alertas = () => {
   const [activeTab, setActiveTab] = useState('historial');
@@ -11,6 +12,7 @@ const Alertas = () => {
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
+  const { refreshAlertas } = useAlertNotifications();
   const [formData, setFormData] = useState({
     targetType: 'DISPOSITIVO',
     targetId: '',
@@ -170,6 +172,8 @@ const Alertas = () => {
       if (formData.targetId) {
         fetchConfigs(formData.targetType, formData.targetId);
       }
+      await refreshAlertas();
+      await fetchData();
     } catch (error) {
       console.error('Error saving config:', error);
       const msg = error.response?.data?.message || error.response?.data?.error || 'Error al guardar la configuración';
@@ -250,7 +254,7 @@ const Alertas = () => {
     const hints = {
       'TEMPERATURA': 'Ingrese un rango en grados Celsius. Por ejemplo, 15°C a 30°C para condiciones normales de clima de cultivo.',
       'HUMEDAD': 'Ingrese un rango en porcentaje de humedad del suelo. Por ejemplo, 20% a 80% según el tipo de cultivo.',
-      'LUMINOSIDAD': 'Ingrese un rango en lux. Por ejemplo, 2000 a 10000 lux para niveles de luz adecuados en campo abierto.',
+      'LUMINOSIDAD': 'Luminosidad (lux) solo está disponible con sensor físico. Para alertas solo con clima de zona, use temperatura o humedad.',
       'TEMP_AIRE': 'Ingrese un rango en grados Celsius. Por ejemplo, 15°C a 30°C para condiciones normales de clima de cultivo.',
       'HUM_AIRE': 'Ingrese un rango en porcentaje de humedad del aire. Por ejemplo, 20% a 80% según el tipo de cultivo.',
       'LUX': 'Ingrese un rango en lux. Por ejemplo, 2000 a 10000 lux para niveles de luz adecuados en campo abierto.'
@@ -275,7 +279,8 @@ const Alertas = () => {
   const marcarComoVista = async (id) => {
     try {
       await api.patch(`/alertas/historial/${id}/vista`);
-      fetchData();
+      await fetchData();
+      await refreshAlertas();
     } catch (error) {
       console.error('Error marking alerta as vista:', error);
     }
@@ -312,9 +317,12 @@ const Alertas = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Gestión de Alertas</h1>
-            <p className="text-gray-600 mt-1">Configura y visualiza las alertas del sistema</p>
+            <p className="text-gray-600 mt-1">
+              Alertas por sensor (dispositivo) o por clima de zona (lote, Open-Meteo). Se evalúan al guardar la regla y cada 15 minutos.
+            </p>
           </div>
           <button
+            type="button"
             onClick={openNewModal}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-green-500 to-emerald-600 text-white px-5 py-3 text-sm font-semibold shadow-lg hover:from-green-600 hover:to-emerald-700 transition-all"
           >
@@ -455,7 +463,12 @@ const Alertas = () => {
               <div className="rounded-3xl bg-green-50 border border-green-100 p-4 mb-4 text-sm text-green-800">
                 <p className="font-semibold">¿Cómo funciona esta alerta?</p>
                 <p className="mt-2 text-gray-700">
-                  Selecciona un objetivo y define un rango mínimo y máximo. Si el sensor mide un valor fuera de ese rango, el sistema genera una alerta.
+                  {formData.targetType === 'LOTE'
+                    ? 'Alerta por lote: usa el clima de la zona (Open-Meteo) guardado en telemetría. Ideal si no tienes sensores. Variables: temperatura, humedad del aire, suelo, viento, etc.'
+                    : 'Alerta por dispositivo: usa lecturas del sensor o, si no hay sensor activo, el clima Open-Meteo asociado al lote del dispositivo.'}
+                </p>
+                <p className="mt-2 text-gray-600">
+                  El rango permitido es el intervalo normal. Si el valor sale de ese rango (o cumple la condición mayor/menor/igual), se notifica en pantalla y en el panel de notificaciones.
                 </p>
                 <p className="mt-2 text-gray-700">
                   Por ejemplo, para temperatura usamos grados Celsius (°C), para humedad usamos porcentaje (%) y para luminosidad usamos lux.
